@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Administrativo - Inventário da Saúde</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+    <!-- Header Administrador -->
+    <header class="bg-slate-900 text-white shadow-md py-4 px-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    🔒 Almoxarifado Central <span class="bg-emerald-600 text-xs px-2 py-0.5 rounded font-normal">ADMIN</span>
+                </h1>
+                <p class="text-slate-400 text-sm">Painel de Aprovação de Pedidos e Controle Geral</p>
+            </div>
+            
+            <!-- Menu de Abas Administrador -->
+            <div class="flex bg-slate-800 p-1 rounded-xl gap-1 text-sm font-medium border border-slate-700">
+                <button onclick="alternarAba('abaAprovacoes')" id="btnAbaAprovacoes" class="px-4 py-2 rounded-lg transition bg-emerald-600 text-white shadow flex items-center gap-1">
+                    📋 Fila de Aprovação <span id="badgePendentes" class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
+                </button>
+                <button onclick="alternarAba('abaEstoque')" id="btnAbaEstoque" class="px-4 py-2 rounded-lg transition text-slate-300 hover:text-white">
+                    📦 Visão do Estoque
+                </button>
+                <button onclick="alternarAba('abaLancarPedido')" id="btnAbaLancarPedido" class="px-4 py-2 rounded-lg transition text-slate-300 hover:text-white">
+                    📝 Pedido Presencial
+                </button>
+            </div>
+
+            <button onclick="carregarDados()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition shadow">
+                🔄 Atualizar Dados
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto p-6">
+
+        <!-- SEÇÃO 1: FILA DE APROVAÇÕES PENDENTES -->
+        <div id="abaAprovacoes" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-emerald-600">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 border-b pb-2 flex justify-between items-center">
+                    <span>Solicitações Pendentes de Aprovação</span>
+                </h2>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 text-xs uppercase">
+                                <th class="p-3 border-b">Cód. Pedido</th>
+                                <th class="p-3 border-b">Data/Hora</th>
+                                <th class="p-3 border-b">Solicitante</th>
+                                <th class="p-3 border-b">Setor</th>
+                                <th class="p-3 border-b">Itens Solicitados</th>
+                                <th class="p-3 border-b text-center">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaPendentesBody" class="text-sm divide-y divide-slate-100">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEÇÃO 2: VISÃO DO ESTOQUE E OPERAÇÕES -->
+        <div id="abaEstoque" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Formulários (Movimentação e Cadastro) -->
+            <div class="space-y-6 lg:col-span-1">
+                
+                <!-- Registrar Movimentação Direta -->
+                <section class="bg-white p-6 rounded-xl shadow-md border-t-4 border-emerald-500">
+                    <h2 class="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Entrada / Baixa Manual</h2>
+                    <form id="formMovimento" onsubmit="enviarMovimento(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Área</label>
+                            <select id="areaMov" onchange="atualizarInsumosMovSelect()" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="">Selecione a Área</option>
+                                <option value="Limpeza">Limpeza</option>
+                                <option value="Papelaria">Papelaria</option>
+                                <option value="Enfermagem">Enfermagem</option>
+                                <option value="Odonto">Odonto</option>
+                                <option value="Ambulância">Ambulância</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Insumo</label>
+                            <select id="idInsumoMov" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="">Selecione a área primeiro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Tipo de Operação</label>
+                            <select id="tipoMov" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                                <option value="ENTRADA">Entrada</option>
+                                <option value="BAIXA">Baixa (Consumo)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Quantidade</label>
+                            <input type="number" id="qtdMov" min="1" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="Ex: 10">
+                        </div>
+
+                        <button type="submit" id="btnMov" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition shadow">
+                            Salvar Movimentação
+                        </button>
+                    </form>
+                    <div id="msgFeedbackMov" class="mt-3 text-sm text-center font-medium"></div>
+                </section>
+
+                <!-- Cadastrar Novo Insumo -->
+                <section class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500">
+                    <h2 class="text-lg font-semibold text-slate-700 mb-4 border-b pb-2">Cadastrar Novo Insumo</h2>
+                    <form id="formCadastro" onsubmit="cadastrarProduto(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Área</label>
+                            <select id="areaCad" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                <option value="">Selecione a Área</option>
+                                <option value="Limpeza">Limpeza</option>
+                                <option value="Papelaria">Papelaria</option>
+                                <option value="Enfermagem">Enfermagem</option>
+                                <option value="Odonto">Odonto</option>
+                                <option value="Ambulância">Ambulância</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">ID Insumo</label>
+                                <input type="text" id="idCad" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none" placeholder="ENF-001">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Estoque Mínimo</label>
+                                <input type="number" id="minCad" min="0" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none" placeholder="5">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">Nome do Produto</label>
+                            <input type="text" id="nomeCad" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none" placeholder="Seringa 10ml">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Unidade Base</label>
+                                <input type="text" id="unidadeCad" required class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none" placeholder="Unidade">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-1">Embalagem Compra</label>
+                                <input type="text" id="embCad" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none" placeholder="Caixa">
+                            </div>
+                        </div>
+
+                        <button type="submit" id="btnCad" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition shadow">
+                            Cadastrar Insumo
+                        </button>
+                    </form>
+                    <div id="msgFeedbackCad" class="mt-3 text-sm text-center font-medium"></div>
+                </section>
+
+            </div>
+
+            <!-- Tabela de Estoque Atual com Busca -->
+            <section class="bg-white p-6 rounded-xl shadow-md lg:col-span-2 flex flex-col border-t-4 border-slate-700">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 border-b pb-2 gap-3">
+                    <h2 class="text-lg font-semibold text-slate-700">Estoque Atual por Área</h2>
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <input type="text" id="inputBusca" onkeyup="renderizarTabelaEstoque()" placeholder="Buscar por ID ou Nome..." class="border border-slate-300 rounded-lg p-1.5 text-sm w-full md:w-64 focus:outline-none">
+                        <select id="filtroArea" onchange="renderizarTabelaEstoque()" class="border border-slate-300 rounded-lg p-1.5 text-sm focus:outline-none">
+                            <option value="Limpeza">Limpeza</option>
+                            <option value="Papelaria">Papelaria</option>
+                            <option value="Enfermagem">Enfermagem</option>
+                            <option value="Odonto">Odonto</option>
+                            <option value="Ambulância">Ambulância</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 text-xs uppercase">
+                                <th class="p-3 border-b">ID</th>
+                                <th class="p-3 border-b">Nome</th>
+                                <th class="p-3 border-b">Unidade</th>
+                                <th class="p-3 border-b">Atual</th>
+                                <th class="p-3 border-b">Mínimo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaEstoqueBody" class="text-sm divide-y divide-slate-100">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- SEÇÃO 3: LANÇAMENTO DE PEDIDO PRESENCIAL PELO ADMIN -->
+        <div id="abaLancarPedido" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-slate-800">
+                <h2 class="text-xl font-bold text-slate-700 mb-4 border-b pb-2">Lançar Atendimento Presencial / Outra Secretaria</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-slate-700">Solicitante / Retirante</label>
+                            <button onclick="alternarModoManualAdmin('solicitante')" class="text-xs text-blue-600 hover:underline">Alternar modo manual</button>
+                        </div>
+                        <select id="solicitanteSelectAdmin" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                            <option value="">Selecione o Solicitante</option>
+                        </select>
+                        <input type="text" id="solicitanteInputAdmin" placeholder="Digite o nome (Ex: João Silva - Obras)" class="hidden w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-sm font-medium text-slate-700">Setor de Destino</label>
+                            <button onclick="alternarModoManualAdmin('setor')" class="text-xs text-blue-600 hover:underline">Alternar modo manual</button>
+                        </div>
+                        <select id="setorSelectAdmin" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                            <option value="">Selecione o Setor</option>
+                        </select>
+                        <input type="text" id="setorInputAdmin" placeholder="Digite o setor (Ex: Secretaria de Obras)" class="hidden w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Adicionar Item ao Carrinho Admin -->
+                <div class="border-t pt-4">
+                    <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Adicionar Itens ao Pedido</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Área</label>
+                            <select id="areaSolicAdmin" onchange="atualizarInsumosSolicSelectAdmin()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                                <option value="">Selecione a Área</option>
+                                <option value="Limpeza">Limpeza</option>
+                                <option value="Papelaria">Papelaria</option>
+                                <option value="Enfermagem">Enfermagem</option>
+                                <option value="Odonto">Odonto</option>
+                                <option value="Ambulância">Ambulância</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Insumo</label>
+                            <select id="insumoSolicAdmin" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                                <option value="">Selecione a área primeiro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Quantidade</label>
+                            <input type="number" id="qtdSolicAdmin" min="1" placeholder="Ex: 5" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
+                        </div>
+
+                        <div>
+                            <button onclick="adicionarAoCarrinhoAdmin()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg text-sm transition shadow">
+                                ➕ Adicionar ao Pedido
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabela do Carrinho Admin -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-semibold text-slate-600 mb-2">Itens Selecionados:</h3>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
+                                <tr>
+                                    <th class="p-3 border-b">Área</th>
+                                    <th class="p-3 border-b">ID</th>
+                                    <th class="p-3 border-b">Insumo</th>
+                                    <th class="p-3 border-b">Unidade</th>
+                                    <th class="p-3 border-b">Quantidade</th>
+                                    <th class="p-3 border-b text-center">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="carrinhoBodyAdmin" class="divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="6" class="p-4 text-center text-slate-400">Nenhum item adicionado ao pedido ainda.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button onclick="enviarSolicitacaoAdmin()" id="btnEnviarSolicAdmin" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-lg transition shadow">
+                        🚀 Lançar Pedido para Aprovação
+                    </button>
+                </div>
+                <div id="msgFeedbackSolicAdmin" class="mt-3 text-sm text-center font-medium"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Administrador -->
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjjvmue6hLrce7QrVK5fankq_g8w6H3epAIR8MRJTyzS-CPncB8YOr46ndyj4Uhj7iRw/exec";
+
+        let dadosGlobais = {};
+        let carrinhoItensAdmin = [];
+        let modoManualSolicitanteAdmin = false;
+        let modoManualSetorAdmin = false;
+
+        function alternarAba(abaId) {
+            document.getElementById('abaAprovacoes').classList.add('hidden');
+            document.getElementById('abaEstoque').classList.add('hidden');
+            document.getElementById('abaLancarPedido').classList.add('hidden');
+
+            document.getElementById('btnAbaAprovacoes').className = "px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-1";
+            document.getElementById('btnAbaEstoque').className = "px-4 py-2 rounded-lg transition text-slate-300 hover:text-white";
+            document.getElementById('btnAbaLancarPedido').className = "px-4 py-2 rounded-lg transition text-slate-300 hover:text-white";
+
+            if (abaId === 'abaAprovacoes') {
+                document.getElementById('abaAprovacoes').classList.remove('hidden');
+                document.getElementById('btnAbaAprovacoes').className = "px-4 py-2 rounded-lg transition bg-emerald-600 text-white shadow flex items-center gap-1";
+            } else if (abaId === 'abaEstoque') {
+                document.getElementById('abaEstoque').classList.remove('hidden');
+                document.getElementById('btnAbaEstoque').className = "px-4 py-2 rounded-lg transition bg-emerald-600 text-white shadow";
+            } else if (abaId === 'abaLancarPedido') {
+                document.getElementById('abaLancarPedido').classList.remove('hidden');
+                document.getElementById('btnAbaLancarPedido').className = "px-4 py-2 rounded-lg transition bg-emerald-600 text-white shadow";
+            }
+        }
+
+        async function carregarDados() {
+            try {
+                const response = await fetch(WEB_APP_URL);
+                const result = await response.json();
+                if(result.status === "success") {
+                    dadosGlobais = result;
+                    popularesSelectsAuxiliares();
+                    renderizarTabelaEstoque();
+                    renderizarTabelaPendentes();
+                } else {
+                    alert("Erro ao carregar dados: " + result.message);
+                }
+            } catch (error) {
+                console.error("Erro de conexão:", error);
+            }
+        }
+
+        function popularesSelectsAuxiliares() {
+            const selSol = document.getElementById("solicitanteSelectAdmin");
+            selSol.innerHTML = '<option value="">Selecione o Solicitante</option>';
+            (dadosGlobais.solicitantes || []).forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s;
+                opt.textContent = s;
+                selSol.appendChild(opt);
+            });
+
+            const selSet = document.getElementById("setorSelectAdmin");
+            selSet.innerHTML = '<option value="">Selecione o Setor</option>';
+            (dadosGlobais.setores || []).forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s;
+                opt.textContent = s;
+                selSet.appendChild(opt);
+            });
+        }
+
+        function alternarModoManualAdmin(tipo) {
+            if (tipo === 'solicitante') {
+                modoManualSolicitanteAdmin = !modoManualSolicitanteAdmin;
+                document.getElementById('solicitanteSelectAdmin').classList.toggle('hidden', modoManualSolicitanteAdmin);
+                document.getElementById('solicitanteInputAdmin').classList.toggle('hidden', !modoManualSolicitanteAdmin);
+            } else {
+                modoManualSetorAdmin = !modoManualSetorAdmin;
+                document.getElementById('setorSelectAdmin').classList.toggle('hidden', modoManualSetorAdmin);
+                document.getElementById('setorInputAdmin').classList.toggle('hidden', !modoManualSetorAdmin);
+            }
+        }
+
+        function atualizarInsumosSolicSelectAdmin() {
+            const area = document.getElementById("areaSolicAdmin").value;
+            const select = document.getElementById("insumoSolicAdmin");
+            select.innerHTML = '<option value="">Selecione o Insumo</option>';
+
+            if(!area || !dadosGlobais.data[area]) return;
+
+            dadosGlobais.data[area].forEach(item => {
+                const option = document.createElement("option");
+                option.value = item.ID_Insumo;
+                option.textContent = `${item.ID_Insumo} - ${item.Nome} (Estoque: ${item.Estoque_Atual})`;
+                select.appendChild(option);
+            });
+        }
+
+        function adicionarAoCarrinhoAdmin() {
+            const area = document.getElementById("areaSolicAdmin").value;
+            const idInsumo = document.getElementById("insumoSolicAdmin").value;
+            const quantidade = Number(document.getElementById("qtdSolicAdmin").value);
+
+            if (!area || !idInsumo || !quantidade || quantidade <= 0) {
+                alert("Selecione a área, o insumo e informe uma quantidade válida.");
+                return;
+            }
+
+            const itemCadastrado = dadosGlobais.data[area].find(i => String(i.ID_Insumo) === String(idInsumo));
+            if (!itemCadastrado) return;
+
+            carrinhoItensAdmin.push({
+                area: area,
+                idInsumo: idInsumo,
+                nome: itemCadastrado.Nome,
+                unidade: itemCadastrado.Unidade_Base,
+                quantidade: quantidade
+            });
+
+            renderizarCarrinhoAdmin();
+            document.getElementById("qtdSolicAdmin").value = "";
+        }
+
+        function removerDoCarrinhoAdmin(index) {
+            carrinhoItensAdmin.splice(index, 1);
+            renderizarCarrinhoAdmin();
+        }
+
+        function renderizarCarrinhoAdmin() {
+            const tbody = document.getElementById("carrinhoBodyAdmin");
+            tbody.innerHTML = "";
+
+            if (carrinhoItensAdmin.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nenhum item adicionado ao pedido ainda.</td></tr>`;
+                return;
+            }
+
+            carrinhoItensAdmin.forEach((item, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="p-3 border-b">${item.area}</td>
+                    <td class="p-3 border-b font-medium">${item.idInsumo}</td>
+                    <td class="p-3 border-b">${item.nome}</td>
+                    <td class="p-3 border-b">${item.unidade}</td>
+                    <td class="p-3 border-b font-bold text-emerald-700">${item.quantidade}</td>
+                    <td class="p-3 border-b text-center">
+                        <button onclick="removerDoCarrinhoAdmin(${idx})" class="text-red-600 hover:text-red-800 font-bold">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function enviarSolicitacaoAdmin() {
+            const solicitante = modoManualSolicitanteAdmin ? document.getElementById("solicitanteInputAdmin").value : document.getElementById("solicitanteSelectAdmin").value;
+            const setor = modoManualSetorAdmin ? document.getElementById("setorInputAdmin").value : document.getElementById("setorSelectAdmin").value;
+            const feedback = document.getElementById("msgFeedbackSolicAdmin");
+            const btn = document.getElementById("btnEnviarSolicAdmin");
+
+            if (!solicitante || !setor || carrinhoItensAdmin.length === 0) {
+                alert("Preencha o solicitante, o setor e adicione pelo menos um item ao pedido.");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Lançando...";
+
+            const payload = {
+                action: "CRIAR_SOLICITACAO",
+                solicitante: solicitante,
+                setor: setor,
+                itens: carrinhoItensAdmin
+            };
+
+            try {
+                const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    feedback.className = "mt-3 text-sm text-center font-medium text-emerald-600";
+                    feedback.textContent = result.message;
+                    carrinhoItensAdmin = [];
+                    renderizarCarrinhoAdmin();
+                    await carregarDados();
+                    alternarAba('abaAprovacoes');
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                feedback.className = "mt-3 text-sm text-center font-medium text-red-600";
+                feedback.textContent = "Erro: " + error.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "🚀 Lançar Pedido para Aprovação";
+            }
+        }
+
+        function renderizarTabelaPendentes() {
+            const tbody = document.getElementById("tabelaPendentesBody");
+            const badge = document.getElementById("badgePendentes");
+            tbody.innerHTML = "";
+
+            const pendentes = dadosGlobais.pendentes || [];
+            badge.textContent = pendentes.length;
+            badge.classList.toggle("hidden", pendentes.length === 0);
+
+            if (pendentes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nenhuma solicitação pendente no momento.</td></tr>`;
+                return;
+            }
+
+            pendentes.forEach(p => {
+                let itensFormatted = "";
+                try {
+                    const parsed = JSON.parse(p.Itens);
+                    itensFormatted = parsed.map(i => `• ${i.nome} (${i.quantidade} ${i.unidade})`).join("<br>");
+                } catch(e) { itensFormatted = p.Itens; }
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50";
+                tr.innerHTML = `
+                    <td class="p-3 border-b font-bold text-slate-700">${p.ID_Pedido}</td>
+                    <td class="p-3 border-b text-xs text-slate-500">${p.Data_Hora}</td>
+                    <td class="p-3 border-b font-medium">${p.Solicitante}</td>
+                    <td class="p-3 border-b">${p.Setor}</td>
+                    <td class="p-3 border-b text-xs">${itensFormatted}</td>
+                    <td class="p-3 border-b text-center">
+                        <button onclick="aprovarSolicitacao(${p.rowIndex})" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition shadow">
+                            ✅ Aprovar & Gerar Termo
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function aprovarSolicitacao(rowIndex) {
+            if (!confirm("Confirmar aprovação deste pedido? Isso dará baixa automática no estoque e gerará o Termo de Retirada na pasta do Drive.")) return;
+
+            try {
+                const response = await fetch(WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "APROVAR_SOLICITACAO", rowIndex: rowIndex })
+                });
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    alert(result.message);
+                    if (result.docUrl) {
+                        window.open(result.docUrl, "_blank");
+                    }
+                    await carregarDados();
+                } else {
+                    alert("Erro ao aprovar: " + result.message);
+                }
+            } catch (error) {
+                alert("Erro de conexão: " + error.message);
+            }
+        }
+
+        function renderizarTabelaEstoque() {
+            const areaSelecionada = document.getElementById("filtroArea").value;
+            const termoBusca = document.getElementById("inputBusca").value.toLowerCase().trim();
+            const tbody = document.getElementById("tabelaEstoqueBody");
+            tbody.innerHTML = "";
+
+            const itens = (dadosGlobais.data && dadosGlobais.data[areaSelecionada]) ? dadosGlobais.data[areaSelecionada] : [];
+            const itensFiltrados = itens.filter(item => {
+                const id = String(item.ID_Insumo || "").toLowerCase();
+                const nome = String(item.Nome || "").toLowerCase();
+                return id.includes(termoBusca) || nome.includes(termoBusca);
+            });
+
+            if(itensFiltrados.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhum insumo encontrado.</td></tr>`;
+                return;
+            }
+
+            itensFiltrados.forEach(item => {
+                const estoqueAtual = Number(item.Estoque_Atual) || 0;
+                const estoqueMinimo = Number(item.Estoque_Minimo) || 0;
+                const alerta = estoqueAtual <= estoqueMinimo ? 'bg-red-50 text-red-700 font-bold' : '';
+
+                const tr = document.createElement("tr");
+                tr.className = `hover:bg-slate-50 ${alerta}`;
+                tr.innerHTML = `
+                    <td class="p-3 border-b">${item.ID_Insumo}</td>
+                    <td class="p-3 border-b">${item.Nome}</td>
+                    <td class="p-3 border-b">${item.Unidade_Base}</td>
+                    <td class="p-3 border-b">${estoqueAtual}</td>
+                    <td class="p-3 border-b">${estoqueMinimo}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function atualizarInsumosMovSelect() {
+            const area = document.getElementById("areaMov").value;
+            const select = document.getElementById("idInsumoMov");
+            select.innerHTML = '<option value="">Selecione o Insumo</option>';
+
+            if(!area || !dadosGlobais.data[area]) return;
+
+            dadosGlobais.data[area].forEach(item => {
+                const option = document.createElement("option");
+                option.value = item.ID_Insumo;
+                option.textContent = `${item.ID_Insumo} - ${item.Nome} (Estoque: ${item.Estoque_Atual})`;
+                select.appendChild(option);
+            });
+        }
+
+        async function cadastrarProduto(event) {
+            event.preventDefault();
+            const btn = document.getElementById("btnCad");
+            const feedback = document.getElementById("msgFeedbackCad");
+
+            const payload = {
+                action: "CADASTRAR_PRODUTO",
+                area: document.getElementById("areaCad").value,
+                idInsumo: document.getElementById("idCad").value,
+                nome: document.getElementById("nomeCad").value,
+                unidadeBase: document.getElementById("unidadeCad").value,
+                tipoEmbalagem: document.getElementById("embCad").value,
+                estoqueMinimo: document.getElementById("minCad").value
+            };
+
+            btn.disabled = true;
+            try {
+                const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+                const result = await response.json();
+                if(result.status === "success") {
+                    feedback.className = "mt-3 text-sm text-center font-medium text-emerald-600";
+                    feedback.textContent = result.message;
+                    document.getElementById("formCadastro").reset();
+                    await carregarDados();
+                } else { throw new Error(result.message); }
+            } catch (error) {
+                feedback.className = "mt-3 text-sm text-center font-medium text-red-600";
+                feedback.textContent = "Erro: " + error.message;
+            } finally { btn.disabled = false; }
+        }
+
+        async function enviarMovimento(event) {
+            event.preventDefault();
+            const btn = document.getElementById("btnMov");
+            const feedback = document.getElementById("msgFeedbackMov");
+
+            const payload = {
+                action: "MOVIMENTAR",
+                area: document.getElementById("areaMov").value,
+                idInsumo: document.getElementById("idInsumoMov").value,
+                tipo: document.getElementById("tipoMov").value,
+                quantidade: document.getElementById("qtdMov").value
+            };
+
+            btn.disabled = true;
+            try {
+                const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+                const result = await response.json();
+                if(result.status === "success") {
+                    feedback.className = "mt-3 text-sm text-center font-medium text-emerald-600";
+                    feedback.textContent = result.message;
+                    document.getElementById("formMovimento").reset();
+                    await carregarDados();
+                } else { throw new Error(result.message); }
+            } catch (error) {
+                feedback.className = "mt-3 text-sm text-center font-medium text-red-600";
+                feedback.textContent = "Erro: " + error.message;
+            } finally { btn.disabled = false; }
+        }
+
+        // Inicialização
+        carregarDados();
+    </script>
+</body>
+</html>
