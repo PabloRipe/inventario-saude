@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitação de Insumos - Secretaria de Saúde</title>
+    <title>Solicitação de Materiais - Secretaria de Saúde</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -115,9 +115,9 @@
         </div>
     </main>
 
-    <!-- JavaScript do Solicitante -->
+    <!-- JavaScript Exclusivo do Solicitante -->
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjjvmue6hLrce7QrVK5fankq_g8w6H3epAIR8MRJTyzS-CPncB8YOr46ndyj4Uhj7iRw/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKxrPC7E34YiS5hVaelrNhy9BdopIgZl6Lbo9FDlpJiFz2klf8-je_55KBkMcZgYPzrA/exec";
 
         let dadosGlobais = {};
         let carrinhoItens = [];
@@ -141,22 +141,26 @@
 
         function popularesSelectsAuxiliares() {
             const selSol = document.getElementById("solicitanteSelect");
-            selSol.innerHTML = '<option value="">Selecione o Solicitante</option>';
-            (dadosGlobais.solicitantes || []).forEach(s => {
-                const opt = document.createElement("option");
-                opt.value = s;
-                opt.textContent = s;
-                selSol.appendChild(opt);
-            });
+            if (selSol) {
+                selSol.innerHTML = '<option value="">Selecione o Solicitante</option>';
+                (dadosGlobais.solicitantes || []).forEach(s => {
+                    const opt = document.createElement("option");
+                    opt.value = s;
+                    opt.textContent = s;
+                    selSol.appendChild(opt);
+                });
+            }
 
             const selSet = document.getElementById("setorSelect");
-            selSet.innerHTML = '<option value="">Selecione o Setor</option>';
-            (dadosGlobais.setores || []).forEach(s => {
-                const opt = document.createElement("option");
-                opt.value = s;
-                opt.textContent = s;
-                selSet.appendChild(opt);
-            });
+            if (selSet) {
+                selSet.innerHTML = '<option value="">Selecione o Setor</option>';
+                (dadosGlobais.setores || []).forEach(s => {
+                    const opt = document.createElement("option");
+                    opt.value = s;
+                    opt.textContent = s;
+                    selSet.appendChild(opt);
+                });
+            }
         }
 
         function alternarModoManual(tipo) {
@@ -176,7 +180,7 @@
             const select = document.getElementById("insumoSolic");
             select.innerHTML = '<option value="">Selecione o Insumo</option>';
 
-            if(!area || !dadosGlobais.data[area]) return;
+            if(!area || !dadosGlobais.data || !dadosGlobais.data[area]) return;
 
             dadosGlobais.data[area].forEach(item => {
                 const option = document.createElement("option");
@@ -271,6 +275,7 @@
                     feedback.textContent = result.message;
                     carrinhoItens = [];
                     renderizarCarrinho();
+                    await carregarDados();
                 } else {
                     throw new Error(result.message);
                 }
@@ -283,6 +288,7 @@
             }
         }
 
+        // Carrega apenas os dados necessários
         carregarDados();
     </script>
 </body>
