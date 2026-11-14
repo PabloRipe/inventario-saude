@@ -1,0 +1,14 @@
+# Credenciais do clasp (nunca versionar)
+.clasprc.json
+
+# Dependências e artefatos
+node_modules/
+*.log
+*.tmp
+
+# Planilha com dados reais (privacidade)
+Inventario_Saude.xlsx
+
+# Sistema
+.DS_Store
+Thumbs.db

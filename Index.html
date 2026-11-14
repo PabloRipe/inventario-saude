@@ -1,295 +1,205 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitação de Materiais - Secretaria de Saúde</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Formulário de solicitação de materiais ao almoxarifado da Secretaria Municipal de Saúde.">
+  <title>Solicitação de Materiais - Secretaria de Saúde</title>
+  <link rel="stylesheet" href="./assets/css/app.css">
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800">
+<body>
+  <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
 
-    <!-- Header Enxuto -->
-    <header class="bg-emerald-700 text-white shadow-md py-4 px-6 text-center">
-        <h1 class="text-2xl font-bold">Solicitação de Materiais da Saúde</h1>
-        <p class="text-emerald-100 text-sm">Formulário Oficial de Pedidos ao Almoxarifado</p>
-    </header>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <div class="brand">
+        <p class="eyebrow">Secretaria Municipal de Saúde</p>
+        <h1>Solicitação de Materiais</h1>
+        <p class="header-subtitle">Pedidos ao almoxarifado</p>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn btn-ghost btn-on-dark" id="btnAbrirStatus">Consultar pedido</button>
+      </div>
+    </div>
+  </header>
 
-    <!-- Main Container -->
-    <main class="max-w-4xl mx-auto p-6">
-        <div class="bg-white p-6 rounded-xl shadow-md">
-            <h2 class="text-xl font-bold text-slate-700 mb-4 border-b pb-2">Identificação da Solicitação</h2>
-            
-            <!-- Dados do Solicitante e Setor -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium text-slate-700">Solicitante / Retirante</label>
-                        <button onclick="alternarModoManual('solicitante')" class="text-xs text-blue-600 hover:underline">Alternar modo manual</button>
-                    </div>
-                    <select id="solicitanteSelect" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                        <option value="">Carregando solicitantes...</option>
-                    </select>
-                    <input type="text" id="solicitanteInput" placeholder="Digite o nome (Ex: Atendimento Presencial)" class="hidden w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                </div>
+  <main class="page">
+    <div id="bannerPresencial" class="banner hidden" role="status">
+      <strong>Modo presencial.</strong>
+      <span>O pedido será enviado para aprovação no painel administrativo.</span>
+      <a id="linkVoltarPainelBanner" class="banner-link hidden" href="#" target="_blank" rel="noopener">Ir ao painel</a>
+    </div>
 
-                <div>
-                    <div class="flex justify-between items-center mb-1">
-                        <label class="block text-sm font-medium text-slate-700">Setor de Destino</label>
-                        <button onclick="alternarModoManual('setor')" class="text-xs text-blue-600 hover:underline">Alternar modo manual</button>
-                    </div>
-                    <select id="setorSelect" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                        <option value="">Carregando setores...</option>
-                    </select>
-                    <input type="text" id="setorInput" placeholder="Digite o setor (Ex: Secretaria de Obras)" class="hidden w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                </div>
-            </div>
+    <div id="bannerConexao" class="banner banner-error hidden" role="alert">
+      <strong>Não foi possível carregar os dados.</strong>
+      <span>Verifique a conexão e tente novamente.</span>
+      <button type="button" class="btn btn-small btn-secondary" id="btnTentarNovamente">Tentar novamente</button>
+    </div>
 
-            <!-- Adicionar Item ao Carrinho -->
-            <div class="border-t pt-4">
-                <h3 class="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wider">Adicionar Itens ao Pedido</h3>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600 mb-1">Área</label>
-                        <select id="areaSolic" onchange="atualizarInsumosSolicSelect()" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
-                            <option value="">Selecione a Área</option>
-                            <option value="Limpeza">Limpeza</option>
-                            <option value="Papelaria">Papelaria</option>
-                            <option value="Enfermagem">Enfermagem</option>
-                            <option value="Odonto">Odonto</option>
-                            <option value="Ambulância">Ambulância</option>
-                        </select>
-                    </div>
+    <section class="card" aria-labelledby="tituloIdentificacao">
+      <div class="card-header">
+        <h2 id="tituloIdentificacao">Identificação</h2>
+        <p>Quem está solicitando e para qual setor os materiais serão entregues.</p>
+      </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600 mb-1">Insumo</label>
-                        <select id="insumoSolic" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
-                            <option value="">Selecione a área primeiro</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600 mb-1">Quantidade</label>
-                        <input type="number" id="qtdSolic" min="1" placeholder="Ex: 5" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:outline-none">
-                    </div>
-
-                    <div>
-                        <button onclick="adicionarAoCarrinho()" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg text-sm transition shadow">
-                            ➕ Adicionar ao Pedido
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabela do Carrinho -->
-            <div class="mt-6">
-                <h3 class="text-sm font-semibold text-slate-600 mb-2">Itens Selecionados no Pedido:</h3>
-                <div class="overflow-x-auto border border-slate-200 rounded-lg">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-100 text-slate-600 text-xs uppercase">
-                            <tr>
-                                <th class="p-3 border-b">Área</th>
-                                <th class="p-3 border-b">ID</th>
-                                <th class="p-3 border-b">Insumo</th>
-                                <th class="p-3 border-b">Unidade</th>
-                                <th class="p-3 border-b">Quantidade</th>
-                                <th class="p-3 border-b text-center">Ação</th>
-                            </tr>
-                        </thead>
-                        <tbody id="carrinhoBody" class="divide-y divide-slate-100">
-                            <tr>
-                                <td colspan="6" class="p-4 text-center text-slate-400">Nenhum item adicionado ao pedido ainda.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Botão Enviar Solicitação -->
-            <div class="mt-6 flex justify-end">
-                <button onclick="enviarSolicitacao()" id="btnEnviarSolic" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-lg transition shadow">
-                    🚀 Enviar Solicitação para Aprovação
-                </button>
-            </div>
-            <div id="msgFeedbackSolic" class="mt-3 text-sm text-center font-medium"></div>
+      <div class="grid grid-2">
+        <div class="field">
+          <label for="solicitante">Solicitante / Retirante</label>
+          <input id="solicitante" list="listaSolicitantes" autocomplete="name" maxlength="120" placeholder="Digite ou selecione um nome">
+          <datalist id="listaSolicitantes"></datalist>
+          <p class="hint">Se o nome não estiver na lista, digite-o completo.</p>
         </div>
-    </main>
 
-    <!-- JavaScript Exclusivo do Solicitante -->
-    <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKxrPC7E34YiS5hVaelrNhy9BdopIgZl6Lbo9FDlpJiFz2klf8-je_55KBkMcZgYPzrA/exec";
+        <div class="field">
+          <label for="setor">Setor de destino</label>
+          <input id="setor" list="listaSetores" autocomplete="organization" maxlength="120" placeholder="Digite ou selecione o setor">
+          <datalist id="listaSetores"></datalist>
+          <p class="hint">Se o setor não estiver na lista, digite-o completo.</p>
+        </div>
+      </div>
 
-        let dadosGlobais = {};
-        let carrinhoItens = [];
-        let modoManualSolicitante = false;
-        let modoManualSetor = false;
+      <div class="field">
+        <label for="observacao">Observação <span class="label-optional">(opcional)</span></label>
+        <textarea id="observacao" rows="2" maxlength="500" placeholder="Ex.: urgência, horário de retirada, detalhes da entrega..."></textarea>
+        <div class="field-footer"><span class="hint">Máximo de 500 caracteres.</span><span class="counter"><span id="obsCount">0</span>/500</span></div>
+      </div>
+    </section>
 
-        async function carregarDados() {
-            try {
-                const response = await fetch(WEB_APP_URL);
-                const result = await response.json();
-                if(result.status === "success") {
-                    dadosGlobais = result;
-                    popularesSelectsAuxiliares();
-                } else {
-                    alert("Erro ao carregar dados: " + result.message);
-                }
-            } catch (error) {
-                console.error("Erro de conexão:", error);
-            }
-        }
+    <section class="card" aria-labelledby="tituloItens">
+      <div class="card-header">
+        <h2 id="tituloItens">Adicionar itens</h2>
+        <p>Busque pelo nome ou código em qualquer área. Os resultados aparecem enquanto você digita; use o filtro de área para restringir.</p>
+      </div>
 
-        function popularesSelectsAuxiliares() {
-            const selSol = document.getElementById("solicitanteSelect");
-            if (selSol) {
-                selSol.innerHTML = '<option value="">Selecione o Solicitante</option>';
-                (dadosGlobais.solicitantes || []).forEach(s => {
-                    const opt = document.createElement("option");
-                    opt.value = s;
-                    opt.textContent = s;
-                    selSol.appendChild(opt);
-                });
-            }
+      <div class="grid grid-item">
+        <div class="field">
+          <label for="area">Filtrar por área <span class="label-optional">(opcional)</span></label>
+          <select id="area">
+            <option value="">Todas as áreas</option>
+          </select>
+        </div>
 
-            const selSet = document.getElementById("setorSelect");
-            if (selSet) {
-                selSet.innerHTML = '<option value="">Selecione o Setor</option>';
-                (dadosGlobais.setores || []).forEach(s => {
-                    const opt = document.createElement("option");
-                    opt.value = s;
-                    opt.textContent = s;
-                    selSet.appendChild(opt);
-                });
-            }
-        }
+        <div class="field field-search">
+          <label for="buscaInsumo">Insumo</label>
+          <input id="buscaInsumo" type="search" role="combobox" aria-expanded="false" aria-controls="resultadosInsumo" aria-autocomplete="list" autocomplete="off" placeholder="Digite o nome ou código do insumo">
+          <div id="resultadosInsumo" class="combobox" role="listbox" hidden></div>
+        </div>
 
-        function alternarModoManual(tipo) {
-            if (tipo === 'solicitante') {
-                modoManualSolicitante = !modoManualSolicitante;
-                document.getElementById('solicitanteSelect').classList.toggle('hidden', modoManualSolicitante);
-                document.getElementById('solicitanteInput').classList.toggle('hidden', !modoManualSolicitante);
-            } else {
-                modoManualSetor = !modoManualSetor;
-                document.getElementById('setorSelect').classList.toggle('hidden', modoManualSetor);
-                document.getElementById('setorInput').classList.toggle('hidden', !modoManualSetor);
-            }
-        }
+        <div class="field">
+          <label for="quantidade">Quantidade</label>
+          <input id="quantidade" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 5" disabled>
+        </div>
 
-        function atualizarInsumosSolicSelect() {
-            const area = document.getElementById("areaSolic").value;
-            const select = document.getElementById("insumoSolic");
-            select.innerHTML = '<option value="">Selecione o Insumo</option>';
+        <div class="field field-action">
+          <label class="sr-only" for="btnAdicionar">Adicionar ao pedido</label>
+          <button type="button" class="btn btn-primary" id="btnAdicionar" disabled>Adicionar</button>
+        </div>
+      </div>
 
-            if(!area || !dadosGlobais.data || !dadosGlobais.data[area]) return;
+      <div id="itemSelecionado" class="selected-item hidden" aria-live="polite"></div>
+    </section>
 
-            dadosGlobais.data[area].forEach(item => {
-                const option = document.createElement("option");
-                option.value = item.ID_Insumo;
-                option.textContent = `${item.ID_Insumo} - ${item.Nome}`;
-                select.appendChild(option);
-            });
-        }
+    <section class="card" aria-labelledby="tituloCarrinho">
+      <div class="card-header card-header-row">
+        <div>
+          <h2 id="tituloCarrinho">Itens do pedido</h2>
+          <p id="carrinhoResumo">Nenhum item adicionado.</p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-small hidden" id="btnLimpar">Limpar</button>
+      </div>
 
-        function adicionarAoCarrinho() {
-            const area = document.getElementById("areaSolic").value;
-            const idInsumo = document.getElementById("insumoSolic").value;
-            const quantidade = Number(document.getElementById("qtdSolic").value);
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Área</th>
+              <th scope="col">ID</th>
+              <th scope="col">Insumo</th>
+              <th scope="col">Unidade</th>
+              <th scope="col">Qtd.</th>
+              <th scope="col" class="col-action">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="carrinhoBody"></tbody>
+        </table>
+      </div>
 
-            if (!area || !idInsumo || !quantidade || quantidade <= 0) {
-                alert("Selecione a área, o insumo e informe uma quantidade válida.");
-                return;
-            }
+      <div id="carrinhoVazio" class="empty-state">
+        <strong>Nenhum item no pedido.</strong>
+        <span>Selecione uma área, busque o insumo e informe a quantidade.</span>
+      </div>
 
-            const itemCadastrado = dadosGlobais.data[area].find(i => String(i.ID_Insumo) === String(idInsumo));
-            if (!itemCadastrado) return;
+      <div class="cart-footer">
+        <div class="cart-total">
+          <span class="cart-total__number" id="totalItens">0</span>
+          <span>item(ns) no pedido</span>
+        </div>
+        <button type="button" class="btn btn-primary btn-large" id="btnRevisar" disabled>Revisar pedido</button>
+      </div>
+    </section>
 
-            carrinhoItens.push({
-                area: area,
-                idInsumo: idInsumo,
-                nome: itemCadastrado.Nome,
-                unidade: itemCadastrado.Unidade_Base,
-                quantidade: quantidade
-            });
+    <section class="card muted-card" id="secaoStatus" aria-labelledby="tituloStatus">
+      <div class="card-header">
+        <h2 id="tituloStatus">Acompanhar pedido</h2>
+        <p>Informe o código recebido após o envio. Para códigos antigos (PED-1234), informe também o nome do solicitante.</p>
+      </div>
 
-            renderizarCarrinho();
-            document.getElementById("qtdSolic").value = "";
-        }
+      <form id="formStatus" class="inline-form" novalidate>
+        <label class="sr-only" for="protocoloStatus">Código do pedido</label>
+        <input id="protocoloStatus" autocomplete="off" spellcheck="false" placeholder="PED-20261114-A1B2C3">
+        <label class="sr-only" for="solicitanteStatus">Nome do solicitante para pedidos antigos</label>
+        <input id="solicitanteStatus" autocomplete="name" maxlength="120" placeholder="Nome do solicitante (pedidos antigos)">
+        <button type="submit" class="btn btn-secondary" id="btnConsultarStatus">Consultar</button>
+      </form>
 
-        function removerDoCarrinho(index) {
-            carrinhoItens.splice(index, 1);
-            renderizarCarrinho();
-        }
+      <div id="statusResultado" class="status-result" hidden></div>
+    </section>
+  </main>
 
-        function renderizarCarrinho() {
-            const tbody = document.getElementById("carrinhoBody");
-            tbody.innerHTML = "";
+  <footer class="site-footer">
+    <p>Secretaria Municipal de Saúde · Almoxarifado</p>
+    <p>Em caso de problemas, procure o responsável pelo setor.</p>
+  </footer>
 
-            if (carrinhoItens.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Nenhum item adicionado ao pedido ainda.</td></tr>`;
-                return;
-            }
+  <dialog id="modalAlerta" class="modal">
+    <div class="modal-card">
+      <h2 id="alertaTitulo">Atenção</h2>
+      <div id="alertaMensagem" class="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnFecharAlerta">Entendi</button>
+      </div>
+    </div>
+  </dialog>
 
-            carrinhoItens.forEach((item, idx) => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td class="p-3 border-b">${item.area}</td>
-                    <td class="p-3 border-b font-medium">${item.idInsumo}</td>
-                    <td class="p-3 border-b">${item.nome}</td>
-                    <td class="p-3 border-b">${item.unidade}</td>
-                    <td class="p-3 border-b font-bold text-emerald-700">${item.quantidade}</td>
-                    <td class="p-3 border-b text-center">
-                        <button onclick="removerDoCarrinho(${idx})" class="text-red-600 hover:text-red-800 font-bold">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+  <dialog id="modalConfirmar" class="modal">
+    <div class="modal-card modal-card-wide">
+      <h2>Revisar pedido</h2>
+      <div id="confirmarResumo" class="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelarConfirmacao">Voltar e editar</button>
+        <button type="button" class="btn btn-primary" id="btnConfirmarEnvio">Enviar solicitação</button>
+      </div>
+    </div>
+  </dialog>
 
-        async function enviarSolicitacao() {
-            const solicitante = modoManualSolicitante ? document.getElementById("solicitanteInput").value : document.getElementById("solicitanteSelect").value;
-            const setor = modoManualSetor ? document.getElementById("setorInput").value : document.getElementById("setorSelect").value;
-            const feedback = document.getElementById("msgFeedbackSolic");
-            const btn = document.getElementById("btnEnviarSolic");
+  <dialog id="modalSucesso" class="modal">
+    <div class="modal-card">
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <h2>Pedido enviado</h2>
+      <p class="modal-lead">Guarde o código abaixo. O pedido ficará pendente até a aprovação do almoxarifado.</p>
+      <div class="protocol-box">
+        <code id="protocoloSucesso">-</code>
+        <button type="button" class="btn btn-small btn-secondary" id="btnCopiarProtocolo">Copiar</button>
+      </div>
+      <div id="sucessoAviso" class="modal-note hidden"></div>
+      <div class="modal-actions modal-actions-wrap">
+        <button type="button" class="btn btn-ghost" id="btnNovaSolicitacao">Nova solicitação</button>
+        <button type="button" class="btn btn-secondary" id="btnVerStatusSucesso">Consultar status</button>
+        <a id="linkVoltarPainelSucesso" class="btn btn-primary hidden" href="#" target="_blank" rel="noopener">Voltar ao painel</a>
+      </div>
+    </div>
+  </dialog>
 
-            if (!solicitante || !setor || carrinhoItens.length === 0) {
-                alert("Preencha o solicitante, o setor e adicione pelo menos um item ao pedido.");
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = "Enviando...";
-
-            const payload = {
-                action: "CRIAR_SOLICITACAO",
-                solicitante: solicitante,
-                setor: setor,
-                itens: carrinhoItens
-            };
-
-            try {
-                const response = await fetch(WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
-                const result = await response.json();
-
-                if (result.status === "success") {
-                    feedback.className = "mt-3 text-sm text-center font-medium text-emerald-600";
-                    feedback.textContent = result.message;
-                    carrinhoItens = [];
-                    renderizarCarrinho();
-                    await carregarDados();
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                feedback.className = "mt-3 text-sm text-center font-medium text-red-600";
-                feedback.textContent = "Erro: " + error.message;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = "🚀 Enviar Solicitação para Aprovação";
-            }
-        }
-
-        // Carrega apenas os dados necessários
-        carregarDados();
-    </script>
+  <script type="module" src="./assets/js/app.js"></script>
 </body>
 </html>

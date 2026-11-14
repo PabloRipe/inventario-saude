@@ -1,0 +1,160 @@
+<script>
+(function () {
+  "use strict";
+
+  var App = window.InventarioAdmin;
+  var ui = App.ui;
+
+  function preencherAreas() {
+    var select = ui.qs("#relatorioArea");
+    if (!select) return;
+
+    var anterior = select.value;
+    ui.limpar(select);
+    select.appendChild(ui.criar("option", { texto: "Selecione a área", atributos: { value: "" } }));
+    var areas = (App.state.painel && App.state.painel.areas) || [];
+    areas.forEach(function (area) {
+      select.appendChild(ui.criar("option", { texto: area, atributos: { value: area } }));
+    });
+    if (anterior && areas.indexOf(anterior) !== -1) select.value = anterior;
+  }
+
+  function periodoPadrao() {
+    var agora = new Date();
+    return agora.getFullYear() + "-" + ("0" + (agora.getMonth() + 1)).slice(-2);
+  }
+
+  function render() {
+    preencherAreas();
+    var periodo = ui.qs("#relatorioPeriodo");
+    if (periodo && !periodo.value) periodo.value = periodoPadrao();
+  }
+
+  async function executar(botao, tarefa) {
+    ui.bloquear(botao, "Gerando...");
+    try {
+      await tarefa();
+    } finally {
+      ui.liberar(botao);
+    }
+  }
+
+  function gerarGeral() {
+    var btn = ui.qs("#btnRelatorioGeral");
+    executar(btn, async function () {
+      try {
+        var r = await App.api.gerarRelatorio("geral", {});
+        ui.resultado(
+          "Relatório geral gerado",
+          "Itens cadastrados: " + (r.totalItens || 0) +
+            " · Estoque total: " + (r.totalEstoque || 0) +
+            " · Itens críticos: " + (r.totalCriticos || 0) + ".",
+          r.url
+        );
+      } catch (erro) {
+        ui.alerta("Não foi possível gerar o relatório", erro.message || "Tente novamente.", erro.detalhes || []);
+      }
+    });
+  }
+
+  function gerarArea() {
+    var area = (ui.qs("#relatorioArea") || {}).value || "";
+    if (!area) {
+      ui.alerta("Selecione a área", "Escolha a área para gerar o relatório.");
+      return;
+    }
+
+    var btn = ui.qs("#btnRelatorioArea");
+    executar(btn, async function () {
+      try {
+        var r = await App.api.gerarRelatorio("area", { area: area });
+        ui.resultado(
+          "Relatório de " + r.area + " gerado",
+          "Itens: " + (r.totalItens || 0) +
+            " · Estoque total: " + (r.totalEstoque || 0) +
+            " · Itens críticos: " + (r.totalCriticos || 0) + ".",
+          r.url
+        );
+      } catch (erro) {
+        ui.alerta("Não foi possível gerar o relatório", erro.message || "Tente novamente.", erro.detalhes || []);
+      }
+    });
+  }
+
+  function gerarSaidas() {
+    var periodo = (ui.qs("#relatorioPeriodo") || {}).value || "";
+    if (!periodo) {
+      ui.alerta("Informe o período", "Selecione o mês e o ano para gerar o relatório de saídas.");
+      return;
+    }
+
+    var btn = ui.qs("#btnRelatorioSaidas");
+    executar(btn, async function () {
+      try {
+        var r = await App.api.gerarRelatorio("saidas", { periodo: periodo });
+        ui.resultado(
+          "Saídas de " + r.periodo + " geradas",
+          "Registros de baixa: " + (r.totalRegistros || 0) +
+            " · Quantidade total retirada: " + (r.totalQuantidade || 0) + ".",
+          r.url
+        );
+      } catch (erro) {
+        ui.alerta("Não foi possível gerar o relatório", erro.message || "Tente novamente.", erro.detalhes || []);
+      }
+    });
+  }
+
+  function gerarCriticos() {
+    var btn = ui.qs("#btnRelatorioCriticos");
+    executar(btn, async function () {
+      try {
+        var r = await App.api.gerarRelatorio("criticos", {});
+        ui.resultado(
+          "Relatório de críticos gerado",
+          "Foram encontrados " + (r.totalCriticos || 0) + " item(ns) crítico(s).",
+          r.url
+        );
+      } catch (erro) {
+        ui.alerta("Não foi possível gerar o relatório", erro.message || "Tente novamente.", erro.detalhes || []);
+      }
+    });
+  }
+
+  function gerarTermo() {
+    var protocolo = ((ui.qs("#termoProtocolo") || {}).value || "").trim();
+    if (!protocolo) {
+      ui.alerta("Informe o código", "Digite o código de um pedido aprovado.");
+      return;
+    }
+
+    var btn = ui.qs("#btnGerarTermo");
+    executar(btn, async function () {
+      try {
+        var r = await App.api.gerarTermo(protocolo);
+        ui.resultado("Termo gerado", "Pedido " + r.protocolo + " · documento criado no Drive.", r.docUrl);
+      } catch (erro) {
+        ui.alerta("Não foi possível gerar o termo", erro.message || "Tente novamente.", erro.detalhes || []);
+      }
+    });
+  }
+
+  function bind() {
+    var btnGeral = ui.qs("#btnRelatorioGeral");
+    var btnArea = ui.qs("#btnRelatorioArea");
+    var btnSaidas = ui.qs("#btnRelatorioSaidas");
+    var btnCriticos = ui.qs("#btnRelatorioCriticos");
+    var btnTermo = ui.qs("#btnGerarTermo");
+
+    if (btnGeral) btnGeral.addEventListener("click", gerarGeral);
+    if (btnArea) btnArea.addEventListener("click", gerarArea);
+    if (btnSaidas) btnSaidas.addEventListener("click", gerarSaidas);
+    if (btnCriticos) btnCriticos.addEventListener("click", gerarCriticos);
+    if (btnTermo) btnTermo.addEventListener("click", gerarTermo);
+  }
+
+  App.relatorios = {
+    bind: bind,
+    render: render
+  };
+})();
+</script>

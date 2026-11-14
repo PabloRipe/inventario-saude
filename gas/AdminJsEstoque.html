@@ -1,0 +1,213 @@
+<script>
+(function () {
+  "use strict";
+
+  var App = window.InventarioAdmin;
+  var ui = App.ui;
+
+  function normalizar(valor) {
+    return String(valor || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function preencherSelectAreas(select, incluirTodas) {
+    if (!select) return;
+    var anterior = select.value;
+    ui.limpar(select);
+    select.appendChild(ui.criar("option", {
+      texto: incluirTodas ? "Todas as áreas" : "Selecione a área",
+      atributos: { value: "" }
+    }));
+    var areas = (App.state.painel && App.state.painel.areas) || [];
+    areas.forEach(function (area) {
+      select.appendChild(ui.criar("option", { texto: area, atributos: { value: area } }));
+    });
+    if (anterior && (incluirTodas || areas.indexOf(anterior) !== -1)) {
+      select.value = anterior;
+    }
+  }
+
+  function preencherAreas() {
+    preencherSelectAreas(ui.qs("#movArea"), false);
+    preencherSelectAreas(ui.qs("#cadArea"), false);
+    preencherSelectAreas(ui.qs("#filtroAreaEstoque"), true);
+    preencherSelectAreas(ui.qs("#filtroAreaHistorico"), true);
+    atualizarInsumosMov();
+  }
+
+  function atualizarInsumosMov() {
+    var areaSelect = ui.qs("#movArea");
+    var insumoSelect = ui.qs("#movInsumo");
+    if (!areaSelect || !insumoSelect) return;
+
+    var anterior = insumoSelect.value;
+    var area = areaSelect.value;
+    ui.limpar(insumoSelect);
+
+    if (!area || !App.state.painel) {
+      insumoSelect.appendChild(ui.criar("option", { texto: "Selecione a área primeiro", atributos: { value: "" } }));
+      return;
+    }
+
+    var itens = (App.state.painel.estoque && App.state.painel.estoque[area]) || [];
+    insumoSelect.appendChild(ui.criar("option", { texto: "Selecione o insumo", atributos: { value: "" } }));
+    itens.forEach(function (item) {
+      insumoSelect.appendChild(ui.criar("option", {
+        texto: item.id + " - " + item.nome + " (Estoque: " + ui.formatarNumero(item.atual) + ")",
+        atributos: { value: item.id }
+      }));
+    });
+    if (anterior && itens.some(function (item) { return item.id === anterior; })) {
+      insumoSelect.value = anterior;
+    }
+  }
+
+  function render() {
+    var tbody = ui.qs("#tabelaEstoqueBody");
+    var vazio = ui.qs("#vazioEstoque");
+    if (!tbody || !vazio || !App.state.painel) return;
+
+    var areaFiltro = (ui.qs("#filtroAreaEstoque") || {}).value || "";
+    var termo = normalizar((ui.qs("#filtroBuscaEstoque") || {}).value || "");
+    var areas = areaFiltro ? [areaFiltro] : (App.state.painel.areas || []);
+    var linhas = [];
+
+    areas.forEach(function (area) {
+      var itens = (App.state.painel.estoque && App.state.painel.estoque[area]) || [];
+      itens.forEach(function (item) {
+        if (termo && normalizar(item.id).indexOf(termo) === -1 && normalizar(item.nome).indexOf(termo) === -1) {
+          return;
+        }
+        linhas.push(item);
+      });
+    });
+
+    ui.limpar(tbody);
+    vazio.classList.toggle("hidden", linhas.length !== 0);
+
+    linhas.forEach(function (item) {
+      var critico = Number(item.atual) <= Number(item.minimo);
+      var tr = ui.criar("tr", { className: critico ? "row-critical" : "" });
+      tr.appendChild(ui.criar("td", { texto: item.area }));
+      tr.appendChild(ui.criar("td", { texto: item.id }));
+      tr.appendChild(ui.criar("td", { texto: item.nome }));
+      tr.appendChild(ui.criar("td", { texto: item.unidade }));
+      tr.appendChild(ui.criar("td", { texto: ui.formatarNumero(item.atual) }));
+      tr.appendChild(ui.criar("td", { texto: ui.formatarNumero(item.minimo) }));
+      tr.appendChild(ui.criar("td", {}, [ui.badge(critico ? "INSUFICIENTE" : "OK")]));
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function movimentar(evento) {
+    evento.preventDefault();
+
+    var area = ui.qs("#movArea").value;
+    var idInsumo = ui.qs("#movInsumo").value;
+    var tipo = ui.qs("#movTipo").value;
+    var quantidade = Number(ui.qs("#movQuantidade").value);
+    var lote = ui.qs("#movLote").value;
+    var validade = ui.qs("#movValidade").value;
+    var observacao = ui.qs("#movObservacao").value;
+    var feedback = ui.qs("#feedbackMovimento");
+    var btn = ui.qs("#btnMovimentar");
+
+    if (!area || !idInsumo || !tipo) {
+      ui.alerta("Dados incompletos", "Selecione a área, o insumo e o tipo de operação.");
+      return;
+    }
+    if (!ui.inteiroPositivo(quantidade)) {
+      ui.alerta("Quantidade inválida", "Informe um número inteiro maior que zero. Quantidades fracionadas não são permitidas.");
+      return;
+    }
+
+    if (tipo === "BAIXA" && App.state.painel) {
+      var itens = (App.state.painel.estoque && App.state.painel.estoque[area]) || [];
+      var produto = itens.find(function (item) { return item.id === idInsumo; });
+      if (produto && quantidade > Number(produto.atual)) {
+        ui.alerta(
+          "Estoque insuficiente",
+          "A baixa não pode ultrapassar o estoque disponível para " + produto.nome + ".",
+          ["Disponível: " + ui.formatarNumero(produto.atual), "Solicitado: " + ui.formatarNumero(quantidade)]
+        );
+        return;
+      }
+    }
+
+    ui.bloquear(btn, "Salvando...");
+    try {
+      var resultado = await App.api.movimentar({
+        area: area,
+        idInsumo: idInsumo,
+        tipo: tipo,
+        quantidade: quantidade,
+        lote: lote,
+        validade: validade,
+        observacao: observacao
+      });
+      ui.definirFeedback(feedback, "Movimentação registrada. Novo estoque: " + ui.formatarNumero(resultado.novoEstoque) + ".", "success");
+      ui.qs("#movQuantidade").value = "";
+      ui.qs("#movLote").value = "";
+      ui.qs("#movValidade").value = "";
+      ui.qs("#movObservacao").value = "";
+      ui.toast("Movimentação registrada.", "success");
+      if (App.app && App.app.recarregar) await App.app.recarregar({ silencioso: true });
+    } catch (erro) {
+      ui.definirFeedback(feedback, erro.message || "Não foi possível registrar.", "error");
+      ui.alerta("Não foi possível movimentar", erro.message || "Tente novamente.", erro.detalhes || []);
+    } finally {
+      ui.liberar(btn);
+    }
+  }
+
+  async function cadastrar(evento) {
+    evento.preventDefault();
+
+    var dados = {
+      area: ui.qs("#cadArea").value,
+      idInsumo: ui.qs("#cadId").value.trim(),
+      nome: ui.qs("#cadNome").value.trim(),
+      unidadeBase: ui.qs("#cadUnidade").value.trim() || "Unidade",
+      tipoEmbalagem: ui.qs("#cadEmbalagem").value.trim(),
+      estoqueMinimo: ui.qs("#cadMinimo").value
+    };
+    var feedback = ui.qs("#feedbackCadastro");
+    var btn = ui.qs("#btnCadastrar");
+
+    if (!dados.area || !dados.idInsumo || !dados.nome) {
+      ui.alerta("Dados incompletos", "Informe a área, o ID e o nome do produto.");
+      return;
+    }
+    if (!Number.isInteger(Number(dados.estoqueMinimo)) || Number(dados.estoqueMinimo) < 0) {
+      ui.alerta("Estoque mínimo inválido", "Informe um número inteiro maior ou igual a zero.");
+      return;
+    }
+
+    ui.bloquear(btn, "Cadastrando...");
+    try {
+      var resultado = await App.api.cadastrarProduto(dados);
+      ui.definirFeedback(feedback, "Insumo " + resultado.idInsumo + " cadastrado com sucesso.", "success");
+      ui.qs("#formCadastro").reset();
+      ui.qs("#cadUnidade").value = "Unidade";
+      ui.toast("Insumo cadastrado.", "success");
+      if (App.app && App.app.recarregar) await App.app.recarregar({ silencioso: true });
+    } catch (erro) {
+      ui.definirFeedback(feedback, erro.message || "Não foi possível cadastrar.", "error");
+      ui.alerta("Não foi possível cadastrar", erro.message || "Tente novamente.", erro.detalhes || []);
+    } finally {
+      ui.liberar(btn);
+    }
+  }
+
+  App.estoque = {
+    preencherAreas: preencherAreas,
+    atualizarInsumosMov: atualizarInsumosMov,
+    render: render,
+    movimentar: movimentar,
+    cadastrar: cadastrar
+  };
+})();
+</script>

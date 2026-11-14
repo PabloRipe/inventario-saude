@@ -1,0 +1,10 @@
+{
+  "name": "inventario-saude",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inventario da Saude - frontend estatico e backend modular no Google Apps Script",
+  "scripts": {
+    "test": "node --test",
+    "check": "node scripts/check-syntax.js"
+  }
+}

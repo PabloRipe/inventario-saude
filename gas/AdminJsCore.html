@@ -1,0 +1,246 @@
+<script>
+(function () {
+  "use strict";
+
+  var cfg = window.__ADMIN_CONFIG__ || {};
+  var state = {
+    painel: null,
+    abaAtiva: "aprovacoes",
+    pedidoSelecionado: null,
+    motivoProtocolo: null,
+    carregando: false
+  };
+
+  function qs(seletor, raiz) {
+    return (raiz || document).querySelector(seletor);
+  }
+
+  function criar(tag, opcoes, filhos) {
+    opcoes = opcoes || {};
+    var elemento = document.createElement(tag);
+    if (opcoes.className) elemento.className = opcoes.className;
+    if (opcoes.texto !== undefined) elemento.textContent = String(opcoes.texto);
+    if (opcoes.atributos) {
+      Object.keys(opcoes.atributos).forEach(function (nome) {
+        var valor = opcoes.atributos[nome];
+        if (valor !== null && valor !== undefined && valor !== false) {
+          elemento.setAttribute(nome, String(valor));
+        }
+      });
+    }
+    if (opcoes.dataset) {
+      Object.keys(opcoes.dataset).forEach(function (nome) {
+        elemento.dataset[nome] = opcoes.dataset[nome];
+      });
+    }
+    (filhos || []).filter(Boolean).forEach(function (filho) {
+      elemento.appendChild(filho);
+    });
+    return elemento;
+  }
+
+  function limpar(elemento) {
+    while (elemento && elemento.firstChild) elemento.removeChild(elemento.firstChild);
+  }
+
+  function toast(mensagem, tipo) {
+    var regiao = qs("#toastRegion");
+    if (!regiao) return;
+    var item = criar("div", { className: "toast toast-" + (tipo || "info"), texto: mensagem });
+    regiao.appendChild(item);
+    window.setTimeout(function () {
+      item.style.opacity = "0";
+      item.style.transition = "opacity .2s ease";
+      window.setTimeout(function () { item.remove(); }, 220);
+    }, 4200);
+  }
+
+  function abrirModal(id) {
+    var dialogo = typeof id === "string" ? qs("#" + id) : id;
+    if (!dialogo) return;
+    if (typeof dialogo.showModal === "function" && !dialogo.open) {
+      try {
+        dialogo.showModal();
+        return;
+      } catch (erro) {
+        // fallback para iframes com restricao de modal
+      }
+    }
+    dialogo.setAttribute("open", "open");
+  }
+
+  function fecharModal(id) {
+    var dialogo = typeof id === "string" ? qs("#" + id) : id;
+    if (!dialogo) return;
+    if (typeof dialogo.close === "function" && dialogo.open) dialogo.close();
+    else dialogo.removeAttribute("open");
+  }
+
+  function alerta(titulo, mensagem, detalhes) {
+    var corpo = qs("#alertaAdminMensagem");
+    var tituloEl = qs("#alertaAdminTitulo");
+    if (!corpo || !tituloEl) return;
+    tituloEl.textContent = titulo || "Atenção";
+    limpar(corpo);
+    corpo.appendChild(criar("p", { texto: mensagem || "" }));
+    var lista = (Array.isArray(detalhes) ? detalhes : detalhes ? [String(detalhes)] : []).map(function (d) {
+      if (typeof d === "string") return d;
+      return d && d.mensagem ? d.mensagem : "";
+    }).filter(Boolean);
+    if (lista.length) {
+      var ul = criar("ul");
+      lista.forEach(function (texto) { ul.appendChild(criar("li", { texto: texto })); });
+      corpo.appendChild(ul);
+    }
+    abrirModal("modalAlertaAdmin");
+  }
+
+  function resultado(titulo, mensagem, link) {
+    var tituloEl = qs("#resultadoTitulo");
+    var corpo = qs("#resultadoMensagem");
+    var linkEl = qs("#linkResultado");
+    if (!tituloEl || !corpo || !linkEl) return;
+    tituloEl.textContent = titulo || "Concluído";
+    limpar(corpo);
+    corpo.appendChild(criar("p", { texto: mensagem || "" }));
+    if (link) {
+      linkEl.href = link;
+      linkEl.classList.remove("hidden");
+    } else {
+      linkEl.href = "#";
+      linkEl.classList.add("hidden");
+    }
+    abrirModal("modalResultado");
+  }
+
+  function badge(status) {
+    var normalizado = String(status || "").toUpperCase();
+    var mapa = {
+      PENDENTE: { rotulo: "Pendente", classe: "badge-pending" },
+      APROVADO: { rotulo: "Aprovado", classe: "badge-ok" },
+      REJEITADO: { rotulo: "Rejeitado", classe: "badge-danger" },
+      CANCELADO: { rotulo: "Cancelado", classe: "badge-neutral" },
+      OK: { rotulo: "Disponível", classe: "badge-ok" },
+      INSUFICIENTE: { rotulo: "Insuficiente", classe: "badge-danger" },
+      ENTRADA: { rotulo: "Entrada", classe: "badge-ok" },
+      BAIXA: { rotulo: "Baixa", classe: "badge-pending" }
+    };
+    var info = mapa[normalizado] || { rotulo: normalizado || "-", classe: "badge-neutral" };
+    return criar("span", { className: "badge " + info.classe, texto: info.rotulo });
+  }
+
+  function formatarNumero(valor) {
+    var numero = Number(valor);
+    if (!Number.isFinite(numero)) return "0";
+    return numero.toLocaleString("pt-BR");
+  }
+
+  function definirFeedback(elemento, mensagem, tipo) {
+    if (!elemento) return;
+    elemento.textContent = mensagem || "";
+    elemento.className = "feedback " + (tipo === "error" ? "feedback--error" : "feedback--success");
+    elemento.classList.toggle("hidden", !mensagem);
+  }
+
+  function bloquear(botao, texto) {
+    if (!botao) return;
+    botao.dataset.textoOriginal = botao.textContent;
+    botao.disabled = true;
+    if (texto) botao.textContent = texto;
+  }
+
+  function liberar(botao) {
+    if (!botao) return;
+    botao.disabled = false;
+    if (botao.dataset.textoOriginal) {
+      botao.textContent = botao.dataset.textoOriginal;
+      delete botao.dataset.textoOriginal;
+    }
+  }
+
+  function inteiroPositivo(valor) {
+    var n = Number(valor);
+    return Number.isInteger(n) && n > 0;
+  }
+
+  function chamar(nome, args) {
+    return new Promise(function (resolve, reject) {
+      if (!window.google || !google.script || !google.script.run) {
+        reject(new Error("A API do Apps Script não está disponível. Abra o painel pela implantação do GAS."));
+        return;
+      }
+
+      var concluido = false;
+      var timer = window.setTimeout(function () {
+        if (concluido) return;
+        concluido = true;
+        reject(new Error("A operação demorou demais. Atualize o painel e verifique se a ação foi concluída."));
+      }, 120000);
+
+      var runner = google.script.run
+        .withSuccessHandler(function (resposta) {
+          if (concluido) return;
+          concluido = true;
+          window.clearTimeout(timer);
+          if (resposta && resposta.ok === true) {
+            resolve(resposta.data);
+          } else {
+            var err = new Error((resposta && resposta.message) || "Não foi possível concluir a operação.");
+            err.codigo = resposta && resposta.codigo;
+            err.detalhes = resposta && resposta.detalhes;
+            reject(err);
+          }
+        })
+        .withFailureHandler(function (erro) {
+          if (concluido) return;
+          concluido = true;
+          window.clearTimeout(timer);
+          reject(new Error((erro && erro.message) || "Falha de comunicação com o servidor."));
+        });
+
+      try {
+        runner[nome].apply(runner, Array.isArray(args) ? args : []);
+      } catch (erro) {
+        concluido = true;
+        window.clearTimeout(timer);
+        reject(erro);
+      }
+    });
+  }
+
+  var api = {
+    carregarPainel: function () { return chamar("adminCarregarPainel"); },
+    aprovarPedido: function (protocolo) { return chamar("adminAprovarPedido", [protocolo]); },
+    rejeitarPedido: function (protocolo, motivo) { return chamar("adminRejeitarPedido", [protocolo, motivo]); },
+    movimentar: function (dados) { return chamar("adminMovimentar", [dados]); },
+    cadastrarProduto: function (dados) { return chamar("adminCadastrarProduto", [dados]); },
+    listarHistorico: function (limite) { return chamar("adminListarHistorico", [limite || 100]); },
+    gerarRelatorio: function (tipo, parametros) { return chamar("adminGerarRelatorio", [tipo, parametros || {}]); },
+    gerarTermo: function (protocolo) { return chamar("adminGerarTermo", [protocolo]); },
+    obterCadastros: function () { return chamar("adminObterCadastros"); }
+  };
+
+  window.InventarioAdmin = {
+    cfg: cfg,
+    state: state,
+    api: api,
+    chamar: chamar,
+    ui: {
+      qs: qs,
+      criar: criar,
+      limpar: limpar,
+      toast: toast,
+      abrirModal: abrirModal,
+      fecharModal: fecharModal,
+      alerta: alerta,
+      resultado: resultado,
+      badge: badge,
+      formatarNumero: formatarNumero,
+      definirFeedback: definirFeedback,
+      bloquear: bloquear,
+      liberar: liberar,
+      inteiroPositivo: inteiroPositivo
+    }
+  };
+})();
+</script>

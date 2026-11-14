@@ -1,0 +1,244 @@
+<script>
+(function () {
+  "use strict";
+
+  var App = window.InventarioAdmin;
+  var ui = App.ui;
+
+  function itensInsuficientes(pedido) {
+    return (pedido.itens || []).filter(function (item) { return item.suficiente === false; });
+  }
+
+  function render() {
+    var lista = ui.qs("#listaAprovacoes");
+    var vazio = ui.qs("#vazioAprovacoes");
+    var badge = ui.qs("#badgeAprovacoes");
+    if (!lista || !vazio || !badge) return;
+
+    var pendentes = (App.state.painel && App.state.painel.pendentes) || [];
+    ui.limpar(lista);
+    badge.textContent = String(pendentes.length);
+    badge.classList.toggle("hidden", pendentes.length === 0);
+    vazio.classList.toggle("hidden", pendentes.length !== 0);
+
+    pendentes.forEach(function (pedido) {
+      var insuficientes = itensInsuficientes(pedido);
+      var card = ui.criar("article", { className: "approval-card" });
+
+      var info = ui.criar("div", { className: "approval-info" }, [
+        ui.criar("div", { className: "approval-code", texto: pedido.protocolo || "-" }),
+        ui.criar("div", {
+          className: "approval-meta",
+          texto: (pedido.data || "-") + " · " + (pedido.solicitante || "-") + " · " + (pedido.setor || "-")
+        })
+      ]);
+
+      var head = ui.criar("div", { className: "approval-head" }, [
+        info,
+        ui.criar("div", {}, [ui.badge(pedido.status)])
+      ]);
+      card.appendChild(head);
+
+      if (pedido.observacao) {
+        card.appendChild(ui.criar("div", { className: "approval-warning", texto: "Observação: " + pedido.observacao }));
+      }
+
+      if (insuficientes.length) {
+        card.appendChild(ui.criar("div", {
+          className: "approval-warning",
+          texto: "Estoque insuficiente para " + insuficientes.length + " item(ns). Atualize o painel ou rejeite o pedido."
+        }));
+      }
+
+      var itens = ui.criar("div", { className: "approval-items" });
+      (pedido.itens || []).forEach(function (item) {
+        var direita = ui.criar("div", { className: "approval-item__right" }, [
+          ui.criar("strong", { texto: ui.formatarNumero(item.quantidade) + " " + (item.unidade || "") }),
+          ui.criar("span", {
+            className: "approval-item__meta",
+            texto: "Disponível: " + ui.formatarNumero(item.estoqueAtual)
+          }),
+          ui.badge(item.suficiente ? "OK" : "INSUFICIENTE")
+        ]);
+
+        itens.appendChild(ui.criar("div", { className: "approval-item" }, [
+          ui.criar("div", { className: "approval-item__main" }, [
+            ui.criar("div", { className: "approval-item__name", texto: item.nome || item.idInsumo }),
+            ui.criar("div", {
+              className: "approval-item__meta",
+              texto: item.area + " · " + item.idInsumo
+            })
+          ]),
+          direita
+        ]));
+      });
+      card.appendChild(itens);
+
+      var btnAprovar = ui.criar("button", {
+        className: "btn btn-primary btn-small",
+        texto: "Aprovar e gerar termo",
+        atributos: { type: "button" }
+      });
+      btnAprovar.disabled = insuficientes.length > 0;
+      if (btnAprovar.disabled) {
+        btnAprovar.title = "Atualize o painel: o estoque atual não cobre este pedido.";
+      }
+      btnAprovar.addEventListener("click", function () { abrirAprovar(pedido.protocolo); });
+
+      var btnRejeitar = ui.criar("button", {
+        className: "btn btn-danger btn-small",
+        texto: "Rejeitar",
+        atributos: { type: "button" }
+      });
+      btnRejeitar.addEventListener("click", function () { abrirRejeitar(pedido.protocolo); });
+
+      card.appendChild(ui.criar("div", { className: "approval-actions" }, [btnAprovar, btnRejeitar]));
+      lista.appendChild(card);
+    });
+  }
+
+  function encontrarPedido(protocolo) {
+    var pendentes = (App.state.painel && App.state.painel.pendentes) || [];
+    return pendentes.find(function (pedido) { return pedido.protocolo === protocolo; }) || null;
+  }
+
+  function abrirAprovar(protocolo) {
+    var pedido = encontrarPedido(protocolo);
+    if (!pedido) {
+      ui.alerta("Pedido não encontrado", "Atualize o painel e tente novamente.");
+      return;
+    }
+
+    App.state.pedidoSelecionado = pedido;
+    var resumo = ui.qs("#resumoAprovar");
+    ui.limpar(resumo);
+
+    resumo.appendChild(ui.criar("dl", { className: "review-meta" }, [
+      ui.criar("div", {}, [
+        ui.criar("dt", { texto: "Pedido" }),
+        ui.criar("dd", { texto: pedido.protocolo })
+      ]),
+      ui.criar("div", {}, [
+        ui.criar("dt", { texto: "Solicitante" }),
+        ui.criar("dd", { texto: pedido.solicitante || "-" })
+      ]),
+      ui.criar("div", {}, [
+        ui.criar("dt", { texto: "Setor" }),
+        ui.criar("dd", { texto: pedido.setor || "-" })
+      ])
+    ]));
+
+    var lista = ui.criar("div", { className: "review-list" });
+    (pedido.itens || []).forEach(function (item) {
+      lista.appendChild(ui.criar("div", { className: "review-item" }, [
+        ui.criar("span", { texto: item.nome + " (" + item.idInsumo + ") · " + item.area }),
+        ui.criar("span", { texto: ui.formatarNumero(item.quantidade) + " " + (item.unidade || "") })
+      ]));
+    });
+    resumo.appendChild(ui.criar("div", { className: "review-section" }, [
+      ui.criar("h3", { texto: "Itens" }),
+      lista
+    ]));
+
+    var insuficientes = itensInsuficientes(pedido);
+    if (insuficientes.length) {
+      resumo.appendChild(ui.criar("div", {
+        className: "approval-warning",
+        texto: "A aprovação será recusada pelo servidor enquanto o estoque não cobrir todos os itens."
+      }));
+    }
+
+    var btn = ui.qs("#btnConfirmarAprovar");
+    btn.disabled = insuficientes.length > 0;
+    ui.abrirModal("modalAprovar");
+  }
+
+  async function confirmarAprovar() {
+    var pedido = App.state.pedidoSelecionado;
+    if (!pedido) {
+      ui.alerta("Nenhum pedido selecionado", "Feche a janela e escolha um pedido na fila.");
+      return;
+    }
+
+    var btn = ui.qs("#btnConfirmarAprovar");
+    ui.bloquear(btn, "Aprovando...");
+
+    try {
+      var resultado = await App.api.aprovarPedido(pedido.protocolo);
+      ui.fecharModal("modalAprovar");
+      var mensagem = "Pedido " + resultado.protocolo + " aprovado, estoque atualizado e termo gerado.";
+      if (resultado.avisoTermo) mensagem = resultado.avisoTermo;
+      ui.resultado("Pedido aprovado", mensagem, resultado.docUrl || "");
+      ui.toast("Pedido aprovado com sucesso.", "success");
+      if (App.app && App.app.recarregar) await App.app.recarregar({ silencioso: true });
+    } catch (erro) {
+      ui.fecharModal("modalAprovar");
+      ui.alerta("Não foi possível aprovar", erro.message || "Tente novamente.", erro.detalhes || []);
+      if (App.app && App.app.recarregar) {
+        await App.app.recarregar({ silencioso: true });
+      }
+    } finally {
+      ui.liberar(btn);
+    }
+  }
+
+  function abrirRejeitar(protocolo) {
+    var pedido = encontrarPedido(protocolo);
+    if (!pedido) {
+      ui.alerta("Pedido não encontrado", "Atualize o painel e tente novamente.");
+      return;
+    }
+
+    App.state.motivoProtocolo = protocolo;
+    var titulo = ui.qs("#rejeitarProtocolo");
+    titulo.textContent = "Pedido " + protocolo + " · " + (pedido.solicitante || "-");
+    var motivo = ui.qs("#motivoRejeicao");
+    motivo.value = "";
+    ui.abrirModal("modalRejeitar");
+    window.setTimeout(function () { motivo.focus(); }, 80);
+  }
+
+  async function confirmarRejeitar() {
+    var protocolo = App.state.motivoProtocolo;
+    var motivoEl = ui.qs("#motivoRejeicao");
+    var motivo = motivoEl ? motivoEl.value.trim() : "";
+
+    if (!protocolo) {
+      ui.alerta("Nenhum pedido selecionado", "Feche a janela e escolha um pedido na fila.");
+      return;
+    }
+    if (!motivo) {
+      ui.alerta("Informe o motivo", "Explique o motivo da rejeição para o solicitante.");
+      if (motivoEl) motivoEl.focus();
+      return;
+    }
+
+    var btn = ui.qs("#btnConfirmarRejeitar");
+    ui.bloquear(btn, "Rejeitando...");
+
+    try {
+      var resultado = await App.api.rejeitarPedido(protocolo, motivo);
+      ui.fecharModal("modalRejeitar");
+      ui.toast("Pedido " + resultado.protocolo + " rejeitado.", "success");
+      ui.resultado("Pedido rejeitado", "O solicitante verá o motivo ao consultar o código " + resultado.protocolo + ".");
+      if (App.app && App.app.recarregar) await App.app.recarregar({ silencioso: true });
+    } catch (erro) {
+      ui.fecharModal("modalRejeitar");
+      ui.alerta("Não foi possível rejeitar", erro.message || "Tente novamente.", erro.detalhes || []);
+      if (App.app && App.app.recarregar) {
+        await App.app.recarregar({ silencioso: true });
+      }
+    } finally {
+      ui.liberar(btn);
+    }
+  }
+
+  App.aprovacoes = {
+    render: render,
+    abrirAprovar: abrirAprovar,
+    confirmarAprovar: confirmarAprovar,
+    abrirRejeitar: abrirRejeitar,
+    confirmarRejeitar: confirmarRejeitar
+  };
+})();
+</script>

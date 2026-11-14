@@ -1,0 +1,272 @@
+<script>
+(function () {
+  "use strict";
+
+  var App = window.InventarioAdmin;
+  var ui = App.ui;
+
+  function estaEmIframe() {
+    try {
+      return window.self !== window.top;
+    } catch (erro) {
+      return true;
+    }
+  }
+
+  async function copiar(texto) {
+    var valor = String(texto || "");
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(valor);
+        return true;
+      }
+    } catch (erro) {
+      // fallback abaixo
+    }
+    try {
+      var area = document.createElement("textarea");
+      area.value = valor;
+      area.setAttribute("readonly", "readonly");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      var ok = document.execCommand("copy");
+      area.remove();
+      return ok;
+    } catch (erro) {
+      return false;
+    }
+  }
+
+  function configurarLinks() {
+    var base = String(App.cfg.publicFormUrl || "").trim();
+    var link = ui.qs("#linkFormularioPresencial");
+    var texto = ui.qs("#linkFormularioTexto");
+    var btnCopiar = ui.qs("#btnCopiarLinkFormulario");
+    var iframe = ui.qs("#iframeFormularioPresencial");
+    var btnRecarregar = ui.qs("#btnRecarregarFormulario");
+    var url = "";
+
+    if (base) {
+      url = base + (base.indexOf("?") === -1 ? "?" : "&") + "presencial=1";
+      if (App.cfg.adminPanelUrl) {
+        url += "&retorno=" + encodeURIComponent(App.cfg.adminPanelUrl);
+      }
+    }
+
+    if (link) {
+      if (url) {
+        link.href = url;
+        link.classList.remove("hidden");
+      } else {
+        link.href = "#";
+        link.classList.add("hidden");
+      }
+    }
+    if (texto) {
+      texto.textContent = url || "Configure PUBLIC_FORM_URL no arquivo Config.gs.";
+    }
+    if (btnCopiar) {
+      btnCopiar.disabled = !url;
+      btnCopiar.addEventListener("click", async function () {
+        var ok = await copiar(url);
+        ui.toast(ok ? "Link copiado." : "Não foi possível copiar o link.", ok ? "success" : "error");
+      });
+    }
+    if (iframe) {
+      if (url) {
+        iframe.dataset.urlBase = url;
+        iframe.src = url + "&embed=1";
+        iframe.classList.remove("hidden");
+      } else {
+        iframe.removeAttribute("src");
+        iframe.classList.add("hidden");
+      }
+    }
+    if (btnRecarregar) {
+      btnRecarregar.disabled = !url;
+      btnRecarregar.addEventListener("click", function () {
+        if (!iframe || !url) return;
+        iframe.src = url + "&embed=1&_=" + Date.now();
+      });
+    }
+
+    var btnNovaAba = ui.qs("#btnNovaAba");
+    if (btnNovaAba) {
+      if (estaEmIframe()) {
+        btnNovaAba.href = window.location.href;
+        btnNovaAba.classList.remove("hidden");
+      } else {
+        btnNovaAba.classList.add("hidden");
+      }
+    }
+  }
+
+  function atualizarStats() {
+    var painel = App.state.painel || {};
+    var resumo = painel.resumo || {};
+    var statPendentes = ui.qs("#statPendentes");
+    var statCriticos = ui.qs("#statCriticos");
+    var statItens = ui.qs("#statItens");
+    if (statPendentes) statPendentes.textContent = String(resumo.pendentes || 0);
+    if (statCriticos) statCriticos.textContent = String(resumo.criticos || 0);
+    if (statItens) statItens.textContent = String(resumo.itens || 0);
+  }
+
+  function alternarAba(aba) {
+    App.state.abaAtiva = aba;
+    Array.from(document.querySelectorAll(".tab-btn")).forEach(function (botao) {
+      botao.classList.toggle("is-active", botao.dataset.aba === aba);
+    });
+
+    var secoes = {
+      aprovacoes: ui.qs("#secaoAprovacoes"),
+      estoque: ui.qs("#secaoEstoque"),
+      historico: ui.qs("#secaoHistorico"),
+      relatorios: ui.qs("#secaoRelatorios"),
+      pedido: ui.qs("#secaoPedido")
+    };
+    Object.keys(secoes).forEach(function (chave) {
+      if (secoes[chave]) secoes[chave].classList.toggle("hidden", chave !== aba);
+    });
+
+    if (aba === "aprovacoes" && App.aprovacoes) App.aprovacoes.render();
+    if (aba === "estoque" && App.estoque) App.estoque.render();
+    if (aba === "historico" && App.historico) App.historico.render();
+    if (aba === "relatorios" && App.relatorios) App.relatorios.render();
+  }
+
+  function renderizarTudo() {
+    atualizarStats();
+    if (App.estoque) App.estoque.preencherAreas();
+    if (App.aprovacoes) App.aprovacoes.render();
+    if (App.estoque) App.estoque.render();
+    if (App.historico) App.historico.render();
+    if (App.relatorios) App.relatorios.render();
+  }
+
+  async function executarRecarga(opcoes) {
+    var silencioso = opcoes && opcoes.silencioso === true;
+    var btnAtualizar = ui.qs("#btnAtualizar");
+    var btnFila = ui.qs("#btnAtualizarAprovacoes");
+
+    if (btnAtualizar) ui.bloquear(btnAtualizar, "Atualizando...");
+    if (btnFila) ui.bloquear(btnFila, "Atualizando...");
+
+    try {
+      var painel = await App.api.carregarPainel();
+      App.state.painel = painel || {};
+      renderizarTudo();
+      if (!silencioso) ui.toast("Painel atualizado.", "success");
+    } catch (erro) {
+      if (erro.codigo === "NAO_AUTORIZADO") {
+        ui.alerta("Acesso não autorizado", erro.message || "Sua conta não tem permissão para acessar o painel.");
+      } else {
+        ui.alerta("Não foi possível atualizar", erro.message || "Verifique a conexão e tente novamente.", erro.detalhes || []);
+      }
+    } finally {
+      if (btnAtualizar) ui.liberar(btnAtualizar);
+      if (btnFila) ui.liberar(btnFila);
+    }
+  }
+
+  function recarregar(opcoes) {
+    if (App.state.promessaRecarga) return App.state.promessaRecarga;
+    App.state.promessaRecarga = executarRecarga(opcoes).finally(function () {
+      App.state.promessaRecarga = null;
+    });
+    return App.state.promessaRecarga;
+  }
+
+  function ligarEventos() {
+    Array.from(document.querySelectorAll(".tab-btn")).forEach(function (botao) {
+      botao.addEventListener("click", function () { alternarAba(botao.dataset.aba); });
+    });
+
+    var btnAtualizar = ui.qs("#btnAtualizar");
+    var btnFila = ui.qs("#btnAtualizarAprovacoes");
+    if (btnAtualizar) btnAtualizar.addEventListener("click", function () { recarregar(); });
+    if (btnFila) btnFila.addEventListener("click", function () { recarregar(); });
+
+    var formMov = ui.qs("#formMovimento");
+    var formCad = ui.qs("#formCadastro");
+    if (formMov) formMov.addEventListener("submit", App.estoque.movimentar);
+    if (formCad) formCad.addEventListener("submit", App.estoque.cadastrar);
+
+    var movArea = ui.qs("#movArea");
+    if (movArea) movArea.addEventListener("change", App.estoque.atualizarInsumosMov);
+
+    var filtroAreaEstoque = ui.qs("#filtroAreaEstoque");
+    var filtroBuscaEstoque = ui.qs("#filtroBuscaEstoque");
+    if (filtroAreaEstoque) filtroAreaEstoque.addEventListener("change", App.estoque.render);
+    if (filtroBuscaEstoque) filtroBuscaEstoque.addEventListener("input", App.estoque.render);
+
+    var filtroAreaHistorico = ui.qs("#filtroAreaHistorico");
+    var filtroTipoHistorico = ui.qs("#filtroTipoHistorico");
+    var filtroBuscaHistorico = ui.qs("#filtroBuscaHistorico");
+    if (filtroAreaHistorico) filtroAreaHistorico.addEventListener("change", App.historico.render);
+    if (filtroTipoHistorico) filtroTipoHistorico.addEventListener("change", App.historico.render);
+    if (filtroBuscaHistorico) filtroBuscaHistorico.addEventListener("input", App.historico.render);
+
+    if (App.relatorios) App.relatorios.bind();
+
+    var btnFecharAlerta = ui.qs("#btnFecharAlertaAdmin");
+    if (btnFecharAlerta) btnFecharAlerta.addEventListener("click", function () { ui.fecharModal("modalAlertaAdmin"); });
+
+    var btnCancelarAprovar = ui.qs("#btnCancelarAprovar");
+    if (btnCancelarAprovar) btnCancelarAprovar.addEventListener("click", function () { ui.fecharModal("modalAprovar"); });
+
+    var btnConfirmarAprovar = ui.qs("#btnConfirmarAprovar");
+    if (btnConfirmarAprovar) btnConfirmarAprovar.addEventListener("click", App.aprovacoes.confirmarAprovar);
+
+    var btnCancelarRejeitar = ui.qs("#btnCancelarRejeitar");
+    if (btnCancelarRejeitar) btnCancelarRejeitar.addEventListener("click", function () { ui.fecharModal("modalRejeitar"); });
+
+    var btnConfirmarRejeitar = ui.qs("#btnConfirmarRejeitar");
+    if (btnConfirmarRejeitar) btnConfirmarRejeitar.addEventListener("click", App.aprovacoes.confirmarRejeitar);
+
+    var btnFecharResultado = ui.qs("#btnFecharResultado");
+    if (btnFecharResultado) btnFecharResultado.addEventListener("click", function () { ui.fecharModal("modalResultado"); });
+
+    ["modalAlertaAdmin", "modalAprovar", "modalRejeitar", "modalResultado"].forEach(function (id) {
+      var dialogo = ui.qs("#" + id);
+      if (!dialogo) return;
+      dialogo.addEventListener("click", function (evento) {
+        if (evento.target === dialogo) ui.fecharModal(id);
+      });
+    });
+
+    window.addEventListener("message", function (evento) {
+      try {
+        var origem = new URL(App.cfg.publicFormUrl).origin;
+        if (evento.origin !== origem) return;
+        var dados = evento.data || {};
+        if (dados.tipo === "inventario:pedido-criado") {
+          ui.toast("Pedido " + (dados.protocolo || "") + " criado pelo formulário.", "success");
+          recarregar({ silencioso: true });
+        }
+      } catch (erro) {
+        // mensagem de outra origem ou formato inválido
+      }
+    });
+  }
+
+  async function iniciar() {
+    configurarLinks();
+    ligarEventos();
+    await recarregar({ silencioso: true });
+  }
+
+  App.app = {
+    recarregar: recarregar,
+    alternarAba: alternarAba
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", iniciar);
+  } else {
+    iniciar();
+  }
+})();
+</script>

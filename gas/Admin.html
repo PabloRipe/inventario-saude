@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel Administrativo - Inventário Saúde</title>
+  <?!= include_('AdminStyles') ?>
+</head>
+<body>
+  <div id="toastRegion" class="toast-region" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <header class="admin-header">
+    <div class="admin-header__inner">
+      <div>
+        <p class="admin-eyebrow">Secretaria Municipal de Saúde</p>
+        <h1>Inventário da Saúde <span class="admin-tag">ADMIN</span></h1>
+        <p class="admin-subtitle">Aprovações, estoque e histórico do almoxarifado</p>
+      </div>
+      <div class="admin-user">
+        <div class="admin-user__info">
+          <span class="admin-user__label">Conectado como</span>
+          <strong id="usuarioEmail"><?= email ?></strong>
+        </div>
+        <button type="button" class="btn btn-ghost btn-on-dark" id="btnAtualizar">Atualizar</button>
+        <a class="btn btn-ghost btn-on-dark hidden" id="btnNovaAba" href="#" target="_blank" rel="noopener">Abrir em nova aba</a>
+      </div>
+    </div>
+  </header>
+
+  <nav class="admin-tabs" aria-label="Seções do painel">
+    <div class="admin-tabs__inner">
+      <button type="button" class="tab-btn is-active" data-aba="aprovacoes" id="tabAprovacoes">
+        Aprovações <span class="tab-badge hidden" id="badgeAprovacoes">0</span>
+      </button>
+      <button type="button" class="tab-btn" data-aba="estoque" id="tabEstoque">Estoque</button>
+      <button type="button" class="tab-btn" data-aba="historico" id="tabHistorico">Histórico</button>
+      <button type="button" class="tab-btn" data-aba="relatorios" id="tabRelatorios">Relatórios</button>
+      <button type="button" class="tab-btn" data-aba="pedido" id="tabPedido">Solicitar materiais</button>
+    </div>
+  </nav>
+
+  <main class="admin-main">
+    <section class="stats-grid" aria-label="Resumo">
+      <article class="stat-card">
+        <span class="stat-label">Pendentes</span>
+        <strong class="stat-value" id="statPendentes">-</strong>
+        <span class="stat-hint">aguardando aprovação</span>
+      </article>
+      <article class="stat-card stat-card--danger">
+        <span class="stat-label">Itens críticos</span>
+        <strong class="stat-value" id="statCriticos">-</strong>
+        <span class="stat-hint">no ou abaixo do mínimo</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Itens cadastrados</span>
+        <strong class="stat-value" id="statItens">-</strong>
+        <span class="stat-hint">em todas as áreas</span>
+      </article>
+    </section>
+
+    <section id="secaoAprovacoes" class="admin-section">
+      <div class="section-head">
+        <div>
+          <h2>Fila de aprovação</h2>
+          <p>Confira a disponibilidade antes de aprovar. A baixa no estoque é automática.</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-small" id="btnAtualizarAprovacoes">Atualizar fila</button>
+      </div>
+      <div id="listaAprovacoes" class="approval-list"></div>
+      <div id="vazioAprovacoes" class="empty-state hidden">
+        <strong>Nenhuma solicitação pendente.</strong>
+        <span>Novos pedidos aparecerão aqui.</span>
+      </div>
+    </section>
+
+    <section id="secaoEstoque" class="admin-section hidden">
+      <div class="section-head">
+        <div>
+          <h2>Estoque e cadastros</h2>
+          <p>Registre entradas, baixas e cadastre novos insumos. Lote e validade são opcionais.</p>
+        </div>
+      </div>
+
+      <div class="estoque-layout">
+        <div class="forms-stack">
+          <article class="panel">
+            <h3>Registrar movimentação</h3>
+            <form id="formMovimento" class="form-stack" novalidate>
+              <div class="field">
+                <label for="movArea">Área</label>
+                <select id="movArea" required>
+                  <option value="">Selecione a área</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="movInsumo">Insumo</label>
+                <select id="movInsumo" required>
+                  <option value="">Selecione a área primeiro</option>
+                </select>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="movTipo">Operação</label>
+                  <select id="movTipo" required>
+                    <option value="ENTRADA">Entrada</option>
+                    <option value="BAIXA">Baixa (consumo)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="movQuantidade">Quantidade</label>
+                  <input id="movQuantidade" type="number" min="1" step="1" inputmode="numeric" required placeholder="Ex.: 10">
+                </div>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="movLote">Lote <span class="label-optional">(opcional)</span></label>
+                  <input id="movLote" maxlength="60" placeholder="Ex.: L2026-01">
+                </div>
+                <div class="field">
+                  <label for="movValidade">Validade <span class="label-optional">(opcional)</span></label>
+                  <input id="movValidade" type="date">
+                </div>
+              </div>
+              <div class="field">
+                <label for="movObservacao">Observação <span class="label-optional">(opcional)</span></label>
+                <textarea id="movObservacao" rows="2" maxlength="500"></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" id="btnMovimentar">Salvar movimentação</button>
+              <p id="feedbackMovimento" class="feedback hidden"></p>
+            </form>
+          </article>
+
+          <article class="panel">
+            <h3>Cadastrar novo insumo</h3>
+            <form id="formCadastro" class="form-stack" novalidate>
+              <div class="field">
+                <label for="cadArea">Área</label>
+                <select id="cadArea" required>
+                  <option value="">Selecione a área</option>
+                </select>
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="cadId">ID do insumo</label>
+                  <input id="cadId" maxlength="40" required placeholder="Ex.: ENF-001">
+                </div>
+                <div class="field">
+                  <label for="cadMinimo">Estoque mínimo</label>
+                  <input id="cadMinimo" type="number" min="0" step="1" inputmode="numeric" required placeholder="Ex.: 5">
+                </div>
+              </div>
+              <div class="field">
+                <label for="cadNome">Nome do produto</label>
+                <input id="cadNome" maxlength="120" required placeholder="Ex.: Seringa 10 ml">
+              </div>
+              <div class="grid-2">
+                <div class="field">
+                  <label for="cadUnidade">Unidade base</label>
+                  <input id="cadUnidade" maxlength="40" required value="Unidade" placeholder="Unidade">
+                </div>
+                <div class="field">
+                  <label for="cadEmbalagem">Embalagem de compra <span class="label-optional">(opcional)</span></label>
+                  <input id="cadEmbalagem" maxlength="60" placeholder="Ex.: Caixa">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-secondary" id="btnCadastrar">Cadastrar insumo</button>
+              <p id="feedbackCadastro" class="feedback hidden"></p>
+            </form>
+          </article>
+        </div>
+
+        <article class="panel panel-table">
+          <div class="panel-head">
+            <h3>Estoque atual</h3>
+            <div class="filters">
+              <input id="filtroBuscaEstoque" type="search" placeholder="Buscar ID ou nome...">
+              <select id="filtroAreaEstoque">
+                <option value="">Todas as áreas</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Área</th>
+                  <th scope="col">ID</th>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Unidade</th>
+                  <th scope="col">Atual</th>
+                  <th scope="col">Mínimo</th>
+                  <th scope="col">Situação</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaEstoqueBody"></tbody>
+            </table>
+          </div>
+          <div id="vazioEstoque" class="empty-state hidden">
+            <strong>Nenhum insumo encontrado.</strong>
+            <span>Ajuste os filtros ou cadastre um novo item.</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="secaoHistorico" class="admin-section hidden">
+      <div class="section-head">
+        <div>
+          <h2>Histórico de movimentações</h2>
+          <p>Últimas 100 movimentações registradas. Use os filtros para localizar um item.</p>
+        </div>
+      </div>
+      <article class="panel panel-table">
+        <div class="filters filters-wide">
+          <input id="filtroBuscaHistorico" type="search" placeholder="Buscar ID, nome, pedido ou usuário...">
+          <select id="filtroAreaHistorico">
+            <option value="">Todas as áreas</option>
+          </select>
+          <select id="filtroTipoHistorico">
+            <option value="">Todos os tipos</option>
+            <option value="ENTRADA">Entrada</option>
+            <option value="BAIXA">Baixa</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Área</th>
+                <th scope="col">ID</th>
+                <th scope="col">Insumo</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Qtd.</th>
+                <th scope="col">Lote / validade</th>
+                <th scope="col">Usuário</th>
+                <th scope="col">Pedido</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaHistoricoBody"></tbody>
+          </table>
+        </div>
+        <div id="vazioHistorico" class="empty-state hidden">
+          <strong>Nenhuma movimentação encontrada.</strong>
+          <span>Ajuste os filtros ou registre uma movimentação.</span>
+        </div>
+      </article>
+    </section>
+
+    <section id="secaoRelatorios" class="admin-section hidden">
+      <div class="section-head">
+        <div>
+          <h2>Relatórios e documentos</h2>
+          <p>Gere relatórios gerenciais e o termo de retirada de pedidos aprovados.</p>
+        </div>
+      </div>
+
+      <div class="report-grid">
+        <article class="panel">
+          <h3>Relatório geral do almoxarifado</h3>
+          <p class="panel-text">Resumo por área, estoque total, itens zerados e insumos críticos.</p>
+          <button type="button" class="btn btn-primary" id="btnRelatorioGeral">Gerar relatório geral</button>
+        </article>
+
+        <article class="panel">
+          <h3>Inventário por área</h3>
+          <p class="panel-text">Relatório completo de uma área específica.</p>
+          <div class="field">
+            <label for="relatorioArea">Área</label>
+            <select id="relatorioArea">
+              <option value="">Selecione a área</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnRelatorioArea">Gerar relatório da área</button>
+        </article>
+
+        <article class="panel">
+          <h3>Saídas mensais</h3>
+          <p class="panel-text">Baixas do mês por área, produto, setor e solicitante.</p>
+          <div class="field">
+            <label for="relatorioPeriodo">Mês e ano</label>
+            <input type="month" id="relatorioPeriodo">
+          </div>
+          <button type="button" class="btn btn-primary" id="btnRelatorioSaidas">Gerar saídas mensais</button>
+        </article>
+
+        <article class="panel">
+          <h3>Insumos críticos</h3>
+          <p class="panel-text">Itens no ou abaixo do estoque mínimo.</p>
+          <button type="button" class="btn btn-secondary" id="btnRelatorioCriticos">Gerar relatório de críticos</button>
+        </article>
+
+        <article class="panel">
+          <h3>Termo de retirada</h3>
+          <p class="panel-text">Gere novamente o termo de um pedido já aprovado.</p>
+          <div class="field">
+            <label for="termoProtocolo">Código do pedido</label>
+            <input id="termoProtocolo" placeholder="PED-20261114-A1B2C3">
+          </div>
+          <button type="button" class="btn btn-secondary" id="btnGerarTermo">Gerar termo</button>
+        </article>
+      </div>
+    </section>
+
+    <section id="secaoPedido" class="admin-section hidden">
+      <article class="panel presencial-card">
+        <div class="panel-head">
+          <div>
+            <h2>Solicitar materiais</h2>
+            <p>
+              O administrador também pode registrar pedidos. O formulário abaixo é o mesmo da página pública,
+              em modo presencial. Após enviar, o pedido aparece na fila de aprovação.
+            </p>
+          </div>
+          <div class="presencial-actions">
+            <a class="btn btn-ghost btn-small" id="linkFormularioPresencial" href="#" target="_blank" rel="noopener">Abrir em nova aba</a>
+            <button type="button" class="btn btn-ghost btn-small" id="btnCopiarLinkFormulario">Copiar link</button>
+            <button type="button" class="btn btn-ghost btn-small" id="btnRecarregarFormulario">Recarregar</button>
+          </div>
+        </div>
+        <p class="hint" id="linkFormularioTexto"></p>
+        <iframe
+          id="iframeFormularioPresencial"
+          class="presencial-iframe hidden"
+          title="Formulário de solicitação de materiais"
+          loading="lazy"
+        ></iframe>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="modalAprovar" class="modal">
+    <div class="modal-card modal-card-wide">
+      <h2>Confirmar aprovação</h2>
+      <p class="modal-lead">A baixa será aplicada a todos os itens abaixo e o termo será gerado.</p>
+      <div id="resumoAprovar" class="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelarAprovar">Voltar</button>
+        <button type="button" class="btn btn-primary" id="btnConfirmarAprovar">Aprovar e gerar termo</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="modalRejeitar" class="modal">
+    <div class="modal-card">
+      <h2>Rejeitar solicitação</h2>
+      <p class="modal-lead" id="rejeitarProtocolo"></p>
+      <div class="field">
+        <label for="motivoRejeicao">Motivo da rejeição</label>
+        <textarea id="motivoRejeicao" rows="4" maxlength="500" placeholder="Explique o motivo para o solicitante."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="btnCancelarRejeitar">Voltar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarRejeitar">Rejeitar pedido</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="modalAlertaAdmin" class="modal">
+    <div class="modal-card">
+      <h2 id="alertaAdminTitulo">Atenção</h2>
+      <div id="alertaAdminMensagem" class="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btnFecharAlertaAdmin">Entendi</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="modalResultado" class="modal">
+    <div class="modal-card">
+      <h2 id="resultadoTitulo">Concluído</h2>
+      <div id="resultadoMensagem" class="modal-body"></div>
+      <div class="modal-actions modal-actions-wrap">
+        <button type="button" class="btn btn-ghost" id="btnFecharResultado">Fechar</button>
+        <a class="btn btn-primary hidden" id="linkResultado" href="#" target="_blank" rel="noopener">Abrir documento</a>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    window.__ADMIN_CONFIG__ = {
+      email: <?!= JSON.stringify(email).replace(/</g, "\\u003c") ?>,
+      nome: <?!= JSON.stringify(nome).replace(/</g, "\\u003c") ?>,
+      publicFormUrl: <?!= JSON.stringify(publicFormUrl).replace(/</g, "\\u003c") ?>,
+      adminPanelUrl: <?!= JSON.stringify(adminPanelUrl).replace(/</g, "\\u003c") ?>
+    };
+  </script>
+  <?!= include_('AdminJsCore') ?>
+  <?!= include_('AdminJsAprovacoes') ?>
+  <?!= include_('AdminJsEstoque') ?>
+  <?!= include_('AdminJsHistorico') ?>
+  <?!= include_('AdminJsRelatorios') ?>
+  <?!= include_('AdminJsApp') ?>
+</body>
+</html>

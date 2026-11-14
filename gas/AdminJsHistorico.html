@@ -1,0 +1,67 @@
+<script>
+(function () {
+  "use strict";
+
+  var App = window.InventarioAdmin;
+  var ui = App.ui;
+
+  function normalizar(valor) {
+    return String(valor || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function render() {
+    var tbody = ui.qs("#tabelaHistoricoBody");
+    var vazio = ui.qs("#vazioHistorico");
+    if (!tbody || !vazio || !App.state.painel) return;
+
+    var area = (ui.qs("#filtroAreaHistorico") || {}).value || "";
+    var tipo = (ui.qs("#filtroTipoHistorico") || {}).value || "";
+    var termo = normalizar((ui.qs("#filtroBuscaHistorico") || {}).value || "");
+    var historico = App.state.painel.historico || [];
+
+    var filtrado = historico.filter(function (item) {
+      if (area && item.area !== area) return false;
+      if (tipo && item.tipo !== tipo) return false;
+      if (!termo) return true;
+      var alvo = [
+        item.idInsumo,
+        item.nome,
+        item.area,
+        item.idPedido,
+        item.usuario,
+        item.observacao,
+        item.lote,
+        item.loteValidade
+      ].map(normalizar).join(" ");
+      return alvo.indexOf(termo) !== -1;
+    });
+
+    ui.limpar(tbody);
+    vazio.classList.toggle("hidden", filtrado.length !== 0);
+
+    filtrado.forEach(function (item) {
+      var tr = ui.criar("tr");
+      tr.appendChild(ui.criar("td", { texto: item.data || "-" }));
+      tr.appendChild(ui.criar("td", { texto: item.area || "-" }));
+      tr.appendChild(ui.criar("td", { texto: item.idInsumo || "-" }));
+      tr.appendChild(ui.criar("td", { texto: item.nome || "-" }));
+      tr.appendChild(ui.criar("td", {}, [ui.badge(item.tipo)]));
+      tr.appendChild(ui.criar("td", { texto: ui.formatarNumero(item.quantidade) }));
+      tr.appendChild(ui.criar("td", {
+        texto: item.loteValidade && item.loteValidade !== "-" ? item.loteValidade : "-"
+      }));
+      tr.appendChild(ui.criar("td", { texto: item.usuario || "-" }));
+      tr.appendChild(ui.criar("td", { texto: item.idPedido || "-" }));
+      tbody.appendChild(tr);
+    });
+  }
+
+  App.historico = {
+    render: render
+  };
+})();
+</script>
