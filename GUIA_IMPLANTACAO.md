@@ -47,21 +47,18 @@ PUBLIC_FORM_URL: "https://SEU-USUARIO.github.io/SEU-REPO/Index.html",
 ADMIN_PANEL_URL: ""
 ```
 
-- `ADMIN_BOOTSTRAP_EMAIL` cria o primeiro administrador na migração.
+- `ADMIN_BOOTSTRAP_EMAIL` pode ficar vazio; depois do push use o menu **Inventário Saúde → Configurar administrador inicial** na planilha.
+- Também é possível definir `ADMIN_BOOTSTRAP_EMAIL` em **Configurações do projeto → Propriedades do script**.
 - `PUBLIC_FORM_URL` é a URL do formulário no GitHub Pages.
 - `ADMIN_PANEL_URL` é opcional. Se ficar vazio, o sistema usa a URL da implantação Admin automaticamente.
 
-Alternativa para o e-mail do admin, sem editar o código: em **Configurações do projeto → Propriedades do script**, crie `ADMIN_BOOTSTRAP_EMAIL` com o e-mail.
+## Etapa 3 — Preparar o projeto antigo do Apps Script
 
-## Etapa 3 — Limpar o projeto antigo do Apps Script
+O `clasp push` substitui **todo o conteúdo online** do projeto pelos arquivos de `gas/`. Por isso:
 
-No editor do Apps Script:
-
-1. **Apague o arquivo `code.gs` antigo.**
-   - Ele contém `doGet`/`doPost` antigos e conflita com `Router.gs`/`RouterAdmin.gs`.
-2. O `Admin.html` antigo pode ser substituído pelo novo.
-3. O `Index.html` antigo do GAS não é mais usado; pode apagar.
-4. Não apague a planilha nem as abas.
+1. Faça o backup do projeto atual (clone para uma pasta temporária ou **Arquivo → Fazer uma cópia** no editor).
+2. Não é necessário apagar o `code.gs` manualmente: ele não está no novo `gas/` e será removido no push.
+3. Não apague a planilha nem as abas.
 
 ## Etapa 4 — Enviar os arquivos novos
 
@@ -161,7 +158,7 @@ Cada administrador precisa de:
 2. Permissão de edição na planilha Google.
 3. Acesso às pastas `Termo de Retirada`, `Relatórios` e `Backups`.
 
-Depois de cadastrar um novo admin, rode **Inventário Saúde → Configurar pastas do Drive** com a conta proprietária.
+Depois do push, o primeiro administrador pode ser configurado na planilha em **Inventário Saúde → Configurar administrador inicial**. Depois de cadastrar um novo admin na aba `Admins`, rode **Inventário Saúde → Configurar pastas do Drive** com a conta proprietária.
 
 ## Etapa 8 — Publicar o formulário no GitHub Pages
 

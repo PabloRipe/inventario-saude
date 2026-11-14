@@ -470,6 +470,31 @@ function normalizarHistorico_(resumo) {
   sheet.getRange(2, idx.validade + 1, Math.max(sheet.getLastRow() - 1, 1), 1).setNumberFormat("dd/MM/yyyy");
 }
 
+function configurarAdminInicial() {
+  var ui = SpreadsheetApp.getUi();
+  var resposta = ui.prompt(
+    "Administrador inicial",
+    "Informe o e-mail Google do administrador:",
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (resposta.getSelectedButton() !== ui.Button.OK) return;
+
+  var email = texto_(resposta.getResponseText()).toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    ui.alert("E-mail inválido.");
+    return;
+  }
+
+  PropertiesService.getScriptProperties().setProperty("ADMIN_BOOTSTRAP_EMAIL", email);
+  var criado = garantirAdminPorEmail_(email, "Administrador");
+
+  ui.alert(
+    "Administrador configurado: " + email + "\n\n" +
+    (criado ? "O e-mail foi adicionado à aba Admins." : "O e-mail já estava cadastrado.") + "\n\n" +
+    "Agora execute a migração da planilha."
+  );
+}
+
 function menuSimularMigracao() {
   try {
     var resumo = simularMigracao();
@@ -536,6 +561,7 @@ function menuGerarTermoPedido() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Inventário Saúde")
+    .addItem("Configurar administrador inicial", "configurarAdminInicial")
     .addItem("Simular migração", "menuSimularMigracao")
     .addItem("Executar migração", "menuExecutarMigracao")
     .addSeparator()

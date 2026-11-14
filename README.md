@@ -196,7 +196,7 @@ Observações:
 - **Solicitar materiais:** o Admin também é solicitante; usa o mesmo formulário público incorporado em modo presencial.
 - **Relatórios:** relatório geral do almoxarifado, inventário por área selecionada, saídas mensais por área/produto/setor/solicitante e relatório de críticos.
 - **Termo de retirada:** geração ou reemissão do termo de um pedido aprovado direto pelo Admin.
-- **Menu da planilha:** simulação/migração, geração de termo por protocolo e os mesmos relatórios.
+- **Menu da planilha:** configuração do administrador inicial, simulação/migração, geração de termo por protocolo e os mesmos relatórios.
 
 ## Segurança e integridade
 
